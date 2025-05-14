@@ -1,0 +1,9 @@
+gradio==4.26.0
+torch==2.1.0
+torchvision
+transformers==4.36.2
+pillow
+numpy
+accelerate
+git+https://github.com/huggingface/diffusers
+opencv-python 
