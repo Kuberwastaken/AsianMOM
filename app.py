@@ -7,6 +7,9 @@ import numpy as np
 from transformers import pipeline, AutoProcessor, AutoModelForVision2Seq
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import time
+import nltk
+from melo.api import TTS
+import io
 
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
@@ -90,59 +93,43 @@ def generate_roast(caption, llm_components):
     return response
 
 def initialize_tts_model():
-    tts_pipeline = pipeline(
-        "text-to-speech", 
-        model="parler-tts/parler-tts-mini-expresso"
-    )
-    return tts_pipeline
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    tts_model = TTS(language='EN', device=device)
+    speaker_ids = tts_model.hps.data.spk2id
+    return tts_model, speaker_ids
 
-def text_to_speech(text, tts_pipeline):
-    # Additional prompt to guide the voice style
-    styled_text = f"[[voice:female_mature]] [[speed:0.9]] [[precision:0.8]] {text}"
-    
-    speech = tts_pipeline(styled_text)
-    return (speech["sampling_rate"], speech["audio"])
+def text_to_speech(text, tts_model, speaker_id='EN-US', speed=1.0):
+    bio = io.BytesIO()
+    tts_model.tts_to_file(text, tts_model.hps.data.spk2id[speaker_id], bio, speed=speed, format='wav')
+    bio.seek(0)
+    return (24000, bio.read())
 
-def process_frame(image, vision_components, llm_components, tts_pipeline):
-    # Step 1: Analyze what's in the image
+def process_frame(image, vision_components, llm_components, tts_model, speaker_id='EN-US'):
     caption = analyze_image(image, vision_components)
-    
-    # Step 2: Generate roast based on the caption
     roast = generate_roast(caption, llm_components)
-    
-    # Step 3: Convert roast to speech
-    audio = text_to_speech(roast, tts_pipeline)
-    
+    audio = text_to_speech(roast, tts_model, speaker_id)
     return caption, roast, audio
 
 def setup_processing_chain(video_feed, analysis_output, roast_output, audio_output):
-    # Initialize all models
     vision_components = initialize_vision_model()
     llm_components = initialize_llm()
-    tts_pipeline = initialize_tts_model()
-    
-    last_process_time = time.time() - 10  # Initialize with an offset
-    processing_interval = 5  # Process every 5 seconds
-    
+    tts_model, speaker_ids = initialize_tts_model()
+    last_process_time = time.time() - 10
+    processing_interval = 5
     def process_webcam(image):
         nonlocal last_process_time
-        
         current_time = time.time()
         if current_time - last_process_time >= processing_interval and image is not None:
             last_process_time = current_time
-            
             caption, roast, audio = process_frame(
-                image, 
-                vision_components, 
-                llm_components, 
-                tts_pipeline
+                image,
+                vision_components,
+                llm_components,
+                tts_model,
+                'EN-US'  # Default accent
             )
-            
             return image, caption, roast, audio
-        
-        # Return None for outputs that shouldn't update
         return image, None, None, None
-    
     video_feed.change(
         process_webcam,
         inputs=[video_feed],
@@ -169,5 +156,7 @@ def create_app():
     return app
 
 if __name__ == "__main__":
+    os.system('python -m unidic download')
+    nltk.download('averaged_perceptron_tagger_eng')
     app = create_app()
     app.launch() 

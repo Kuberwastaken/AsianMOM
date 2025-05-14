@@ -6,4 +6,7 @@ pillow
 numpy
 accelerate
 git+https://github.com/huggingface/diffusers
-opencv-python 
+opencv-python
+melo-tts
+nltk
+unidic-lite 
