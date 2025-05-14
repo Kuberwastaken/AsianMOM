@@ -7,6 +7,5 @@ numpy
 accelerate
 git+https://github.com/huggingface/diffusers
 opencv-python
-melo-tts
 nltk
 unidic-lite 
