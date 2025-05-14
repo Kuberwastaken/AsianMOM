@@ -3,7 +3,7 @@ torch==2.1.0
 torchvision
 transformers
 pillow
-numpy
+numpy<2
 accelerate
 git+https://github.com/huggingface/diffusers
 opencv-python

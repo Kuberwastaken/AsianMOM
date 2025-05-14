@@ -8,7 +8,6 @@ from transformers import pipeline, AutoProcessor, AutoModelForVision2Seq
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import time
 import nltk
-from melo.api import TTS
 import io
 
 from transformers import BlipProcessor, BlipForConditionalGeneration
@@ -93,6 +92,7 @@ def generate_roast(caption, llm_components):
     return response
 
 def initialize_tts_model():
+    from melo.api import TTS
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     tts_model = TTS(language='EN', device=device)
     speaker_ids = tts_model.hps.data.spk2id
