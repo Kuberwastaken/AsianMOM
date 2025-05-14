@@ -1,4 +1,4 @@
-#!/bin/bash
-pip install git+https://github.com/myshell-ai/MeloTTS.git
-python -m unidic download
-python app.py 
+   #!/bin/bash
+   pip install -e .
+   python -m unidic download
+   python app.py 
