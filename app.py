@@ -143,7 +143,7 @@ def create_app():
         
         with gr.Row():
             with gr.Column():
-                video_feed = gr.Image(source="webcam", streaming=True, label="Camera Feed")
+                video_feed = gr.Camera(streaming=True, label="Camera Feed")
             
             with gr.Column():
                 analysis_output = gr.Textbox(label="What AsianMOM Sees", lines=2)
