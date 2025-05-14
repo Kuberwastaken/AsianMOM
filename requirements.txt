@@ -2,7 +2,7 @@ gradio
 # Core dependencies
 torch==2.1.0
 torchvision
-transformers==4.27.4
+transformers
 pillow
 numpy<2
 accelerate
