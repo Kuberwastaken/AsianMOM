@@ -5,7 +5,7 @@ import cv2
 from PIL import Image
 import numpy as np
 from transformers import pipeline, AutoProcessor, AutoModelForVision2Seq
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import time
 
 from transformers import BlipProcessor, BlipForConditionalGeneration
@@ -41,13 +41,26 @@ def analyze_image(image, vision_components):
 
 def initialize_llm():
     model_id = "meta-llama/Llama-3.2-1B-Instruct"
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    hf_token = os.environ.get("HF_TOKEN")
+
+    # Load and patch config
+    config = AutoConfig.from_pretrained(model_id, token=hf_token)
+    if hasattr(config, "rope_scaling"):
+        rope_scaling = config.rope_scaling
+        if isinstance(rope_scaling, dict):
+            config.rope_scaling = {
+                "type": rope_scaling.get("type", "linear"),
+                "factor": rope_scaling.get("factor", 1.0)
+            }
+
+    tokenizer = AutoTokenizer.from_pretrained(model_id, token=hf_token)
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
+        config=config,
         torch_dtype=torch.bfloat16,
-        device_map="auto"
+        device_map="auto",
+        token=hf_token
     )
-    
     return {
         "model": model,
         "tokenizer": tokenizer
