@@ -117,12 +117,12 @@ The magic of AsianMOM unfolds through a carefully orchestrated sequence of clien
 graph LR
     A[User Clicks 'Roast Me!'] --> B{Camera Access}
     B -- Stream --> C[Capture Image Frame]
-    C -- RawImage Data --> D[Image Preprocessing\nvia AutoProcessor]
-    D --> E[SmolVLM-500M-Instruct\n(Vision Model on WebGPU)\nGenerates Image Description]
-    E -- Description Text --> F[Prompt Engineering\n(Combines description with AsianMOM persona)]
-    F --> G[Llama-3.2-1B-Instruct-q4f16\n(LLM on WebGPU)\nGenerates Roast]
-    G -- Roast Text --> H[Web Speech API\n(Text-to-Speech Synthesis)]
-    H -- Audio Output --> I[User Hears AsianMOM's Wisdom]
+    C -- RawImage Data --> D[Preprocess Image\nwith AutoProcessor]
+    D --> E[SmolVLM 500M Instruct\nVision Model on WebGPU\nGenerates Description]
+    E -- Description Text --> F[Prompt Engineering\nCombines with AsianMOM Persona]
+    F --> G[Llama 3.2 1B Instruct\nLLM on WebGPU\nGenerates Roast]
+    G -- Roast Text --> H[Web Speech API\nText to Speech]
+    H -- Audio Output --> I[User Hears AsianMOM Wisdom]
 ```
 
 **Core Technologies & Components:**
