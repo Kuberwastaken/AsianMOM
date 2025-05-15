@@ -1,4 +1,4 @@
-# AsianMOM 💢
+# AsianMOM: Artificial Surveillance with Interactive Analysis and Nagging Maternal Oversight Model
 
 <p align="center">
   <img src="https://img.shields.io/badge/No%20Backend-100%25%20Browser-blue?style=for-the-badge" />
@@ -9,11 +9,6 @@
 </p>
 
 ---
-
-> **AsianMOM: Artificial Surveillance with Interactive Analysis and Nagging Maternal Oversight Model**
-
----
-
 ## 👀 What is AsianMOM?
 
 **AsianMOM** is a next-generation, fully client-side AI app that watches you through your webcam and delivers hilarious, culturally-inspired "mom roasts"—all in real time, with zero server or Python dependencies. It leverages the latest in browser-based machine learning: ONNX Runtime Web, Transformers.js, and WebGPU/WebAssembly acceleration. 

@@ -107,6 +107,16 @@
 
     <div class="io-areas">
       <div>
+        <label for="visionText">What AsianMOM Sees:</label><br />
+        <textarea
+          id="visionText"
+          style="height: 3em; width: 40em"
+          name="Vision"
+          readonly
+          placeholder="AsianMOM's description of what she sees will appear here..."
+        ></textarea>
+      </div>
+      <div>
         <label for="responseText">AsianMOM's Thoughts:</label><br />
         <textarea
           id="responseText"
@@ -142,6 +152,7 @@
       const video = document.getElementById("videoFeed");
       const canvas = document.getElementById("canvas");
       const responseText = document.getElementById("responseText");
+      const visionText = document.getElementById("visionText");
       const intervalSelect = document.getElementById("intervalSelect");
       const startButton = document.getElementById("startButton");
       const loadingOverlay = document.getElementById("loadingOverlay");
@@ -283,7 +294,9 @@
         // Tokenize prompt using Transformers.js tokenizer
         const inputs = await tokenizer(prompt, { return_tensors: "pt" });
         let inputIds = inputs.input_ids[0]; // Get token IDs
+        let attentionMask = inputs.attention_mask[0];
         let generatedIds = [...inputIds];
+        let generatedAttention = [...attentionMask];
         const maxNewTokens = 60;
         const eosTokenId = tokenizer.eos_token_id || 50256; // GPT-2's <|endoftext|> token
 
@@ -294,7 +307,12 @@
             BigInt64Array.from(generatedIds.map(BigInt)),
             [1, generatedIds.length]
           );
-          const feeds = { input_ids: inputTensor };
+          const attentionTensor = new ort.Tensor(
+            "int64",
+            BigInt64Array.from(generatedAttention.map(BigInt)),
+            [1, generatedAttention.length]
+          );
+          const feeds = { input_ids: inputTensor, attention_mask: attentionTensor };
           const results = await session.run(feeds);
           const logits = results.logits.data;
           const vocabSize = tokenizer.vocab_size || 50256;
@@ -305,6 +323,7 @@
           // Greedy decoding: pick token with highest logit
           const nextToken = lastTokenLogits.indexOf(Math.max(...lastTokenLogits));
           generatedIds.push(nextToken);
+          generatedAttention.push(1); // Add attention for the new token
           if (nextToken === eosTokenId || nextToken === tokenizer.encode("\n")[0]) {
             break;
           }
@@ -322,10 +341,12 @@
         const rawImg = captureImage();
         if (!rawImg) {
           responseText.value = "Capture failed";
+          visionText.value = "";
           return;
         }
         try {
           const description = await runLocalVisionInference(rawImg);
+          visionText.value = description;
           responseText.value = "AsianMOM is thinking...";
           const roast = await generateAsianMOMRoast_ONNX(description);
           responseText.value = roast;
@@ -333,6 +354,7 @@
         } catch (e) {
           console.error(e);
           responseText.value = `Error: ${e.message}`;
+          visionText.value = "";
         }
       }
 
