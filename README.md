@@ -9,18 +9,18 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/static/v1?label=Kuberwastaken&message=AsianMOM&color=000000&logo=github" alt="Project AsianMOM WebML">
-  <img src="https://img.shields.io/badge/Version-21.0-000000" alt="Version 21">
-  <img src="https://img.shields.io/badge/License-Apache%202.0-000000" alt="License Apache 2.0">
+  <img src="https://img.shields.io/static/v1?label=Kuberwastaken&message=AsianMOM&color=000000&logo=github" alt="Project AsianMOM WebML" style="margin: 4px;">
+  <img src="https://img.shields.io/badge/Version-21.0-000000" alt="Version 21" style="margin: 4px;">
+  <img src="https://img.shields.io/badge/License-Apache%202.0-000000" alt="License Apache 2.0" style="margin: 4px;">
   <br>
-  <a href="https://huggingface.co/docs/transformers.js/index" target="_blank">
-    <img src="https://img.shields.io/badge/Transformers.js-%23FFD21F?logo=huggingface&logoColor=black" alt="Transformers.js Documentation">
+  <a href="https://huggingface.co/docs/transformers.js/index" target="_blank" style="margin: 4px;">
+    <img src="https://img.shields.io/badge/Transformers.js-%23FFD21F?logo=huggingface&logoColor=black" alt="Transformers.js Documentation" style="margin: 4px;">
   </a>
-  <a href="https://www.w3.org/TR/webgpu/" target="_blank">
-    <img src="https://img.shields.io/badge/WebGPU-%23F34B7D?logo=webgpu&logoColor=white" alt="WebGPU Specification">
+  <a href="https://www.w3.org/TR/webgpu/" target="_blank" style="margin: 4px;">
+    <img src="https://img.shields.io/badge/WebGPU-%23F34B7D?logo=webgpu&logoColor=white" alt="WebGPU Specification" style="margin: 4px;">
   </a>
-  <a href="https://huggingface.co/onnx-community" target="_blank">
-    <img src="https://img.shields.io/badge/ONNX%20Community-%23FFD21F?logo=huggingface&logoColor=black" alt="ONNX Community on HuggingFace">
+  <a href="https://huggingface.co/onnx-community" target="_blank" style="margin: 4px;">
+    <img src="https://img.shields.io/badge/ONNX%20Community-%23FFD21F?logo=huggingface&logoColor=black" alt="ONNX Community on HuggingFace" style="margin: 4px;">
   </a>
 </p>
 
@@ -29,6 +29,14 @@
 **AsianMOM** is the result of a **2-day long study** I did to understand WebGPU and Vision models. It is an application of **Web-based Machine Learning (WebML)** to (try to) reacrate the average asian mom level comebacks in a fun little project - on just your web browser alone. This project offers a glimpse into a future where AI is more accessible, private, and democratized than ever before.
 
 (less) hefty backend load and no API calls; AsianMOM processes your camera feed, understands what she "sees," and delivers witty (and brutally honest) roasts, all on your modern web browser.
+
+---
+
+<p align="center" style="margin: 24px 0;">
+  <a href="https://asianmom.kuber.studio/" target="_blank">
+    <img src="https://img.shields.io/badge/Try%20out%20AsianMOM%20here-dc3546?style=for-the-badge&labelColor=dc3546" alt="Try out AsianMOM" style="margin: 12px 0; padding: 8px 0; max-width: 80px; min-width: 70%; font-size: 1.2em; background-color: #dc3546;">
+  </a>
+</p>
 
 ---
 
