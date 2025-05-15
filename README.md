@@ -114,15 +114,17 @@ All in all, after two days of hacking, I had a working prototype: a fun, interac
 The magic of AsianMOM unfolds through a carefully orchestrated sequence of client-side operations:
 
 ```mermaid
-graph LR
-    A[User Clicks 'Roast Me!'] --> B{Camera Access}
-    B -- Stream --> C[Capture Image Frame]
-    C -- RawImage Data --> D[Preprocess Image\nwith AutoProcessor]
-    D --> E[SmolVLM 500M Instruct\nVision Model on WebGPU\nGenerates Description]
-    E -- Description Text --> F[Prompt Engineering\nCombines with AsianMOM Persona]
-    F --> G[Llama 3.2 1B Instruct\nLLM on WebGPU\nGenerates Roast]
-    G -- Roast Text --> H[Web Speech API\nText to Speech]
-    H -- Audio Output --> I[User Hears AsianMOM Wisdom]
+graph TD
+    A["User Clicks<br>'Roast Me!' Button"] --> B{"Camera Access<br>via Navigator MediaDevices"}
+    B -->|Success: Video Stream| C["Capture Image Frame<br>from Video Feed<br>Using Canvas"]
+    B -->|Error| X["Display Error<br>'Camera Access Denied'"]
+    C -->|RawImage Data| D["Preprocess Image<br>Using AutoProcessor<br>(HuggingFace Transformers)"]
+    D --> E["SmolVLM-500M-Instruct<br>Vision Model on WebGPU<br>Generates Detailed<br>Description of Scene"]
+    E -->|Description Text| F["Prompt Engineering<br>Combines Description with<br>AsianMOM Naggy Persona<br>(Aiyah, Walao, Slipper Threats)"]
+    F --> G["Llama-3.2-1B-Instruct<br>LLM on WebGPU<br>Generates Humorous Roast<br>via Transformers.js"]
+    G -->|Roast Text| H["Web Speech API<br>Text-to-Speech<br>Using Selected Voice<br>(Asian Language Preferred)"]
+    H -->|Audio Output| I["User Hears<br>AsianMOM's<br>Savage Roast"]
+    X --> I
 ```
 
 **Core Technologies & Components:**
