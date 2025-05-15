@@ -1,0 +1,578 @@
+!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AsianMOM: Artificial Surveillance with Interactive Analysis with a Nagging Maternal Oversight Model</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        background-color: #f7f7f7;
+        color: #333;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      header {
+        width: 100%;
+        text-align: center;
+      }
+      .content-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        width: 100%;
+        justify-content: center;
+      }
+      .video-section, .output-section {
+        flex: 1;
+        min-width: 320px;
+      }
+      #videoContainer {
+        position: relative;
+        width: 100%;
+        min-height: 360px;
+        border: 2px solid #333;
+        background-color: #000;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #videoFeed {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      #loadingOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 10;
+        border-radius: 6px;
+        color: #ffffff;
+        font-size: 1.5em;
+        font-weight: bold;
+      }
+      .output-box {
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        margin-bottom: 15px;
+      }
+      .output-label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+        color: #555;
+      }
+      .output-content {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 14px;
+        min-height: 60px;
+        background-color: #fafafa;
+      }
+      #analysisOutput {
+        min-height: 40px;
+      }
+      #roastOutput {
+        min-height: 80px;
+        font-weight: bold;
+        color: #d32f2f;
+      }
+      .controls {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+      }
+      #startButton {
+        color: white;
+        min-width: 120px;
+      }
+      #startButton.start {
+        background-color: #28a745;
+      }
+      #startButton.stop {
+        background-color: #dc3545;
+      }
+      #startButton:hover {
+        opacity: 0.9;
+        transform: scale(1.05);
+      }
+      select, input {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+      }
+      .hidden {
+        display: none;
+      }
+      .audio-player {
+        width: 100%;
+        margin-top: 10px;
+      }
+      /* Spinner Animation */
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 4px solid #fff;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @media (max-width: 768px) {
+        .content-container {
+          flex-direction: column;
+        }
+        .video-section, .output-section {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>AsianMOM</h1>
+      <p>Artificial Surveillance with Interactive Analysis with a Nagging Maternal Oversight Model</p>
+    </header>
+
+    <div class="content-container">
+      <div class="video-section">
+        <div id="videoContainer">
+          <video id="videoFeed" autoplay playsinline></video>
+          <div id="loadingOverlay">
+            <div class="spinner"></div>
+            <div id="loadingText" style="margin-left: 15px;">Loading model...</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="output-section">
+        <div class="output-box">
+          <span class="output-label">What AsianMOM Sees:</span>
+          <div id="analysisOutput" class="output-content"></div>
+        </div>
+        
+        <div class="output-box">
+          <span class="output-label">AsianMOM's Thoughts:</span>
+          <div id="roastOutput" class="output-content"></div>
+        </div>
+        
+        <div class="output-box">
+          <span class="output-label">AsianMOM Says:</span>
+          <audio id="audioOutput" class="audio-player" controls></audio>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="intervalSelect">Processing Interval:</label>
+        <select id="intervalSelect">
+          <option value="1000">1 second</option>
+          <option value="2000">2 seconds</option>
+          <option value="3000">3 seconds</option>
+          <option value="5000" selected>5 seconds</option>
+          <option value="10000">10 seconds</option>
+        </select>
+      </div>
+      
+      <div class="control-group">
+        <label for="voiceSelect">Voice Style:</label>
+        <select id="voiceSelect">
+          <option value="asian-mom" selected>Asian Mom</option>
+          <option value="disappointed">Disappointed</option>
+          <option value="strict">Strict</option>
+        </select>
+      </div>
+      
+      <button id="startButton" class="start">Start AsianMOM</button>
+    </div>
+
+    <canvas id="canvas" class="hidden"></canvas><!-- For capturing frames -->
+
+    <script type="module">
+      import {
+        AutoProcessor,
+        AutoModelForVision2Seq,
+        RawImage,
+      } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers/dist/transformers.min.js";
+
+      const video = document.getElementById("videoFeed");
+      const canvas = document.getElementById("canvas");
+      const analysisOutput = document.getElementById("analysisOutput");
+      const roastOutput = document.getElementById("roastOutput");
+      const audioOutput = document.getElementById("audioOutput");
+      const intervalSelect = document.getElementById("intervalSelect");
+      const voiceSelect = document.getElementById("voiceSelect");
+      const startButton = document.getElementById("startButton");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+      const loadingText = document.getElementById("loadingText");
+
+      let stream;
+      let isProcessing = false;
+      let processor, model;
+      let processingInterval;
+      let lastProcessTime = 0;
+      
+      // API endpoint for server-side processing
+      const API_ENDPOINT = "https://api.example.com/process"; // Replace with actual endpoint
+      
+      // Flag to determine if we're using local or server processing
+      const USE_LOCAL_MODEL = true; // Set to false to use server API instead
+
+      async function initModel() {
+        if (!USE_LOCAL_MODEL) {
+          loadingText.textContent = "Ready for server processing";
+          loadingOverlay.style.display = "none";
+          return;
+        }
+        
+        try {
+          const modelId = "HuggingFaceTB/SmolVLM-500M-Instruct";
+          loadingText.textContent = "Loading vision model...";
+          processor = await AutoProcessor.from_pretrained(modelId);
+          loadingText.textContent = "Loading model weights...";
+          model = await AutoModelForVision2Seq.from_pretrained(modelId, {
+            dtype: {
+              embed_tokens: "fp16",
+              vision_encoder: "q4",
+              decoder_model_merged: "q4",
+            },
+            device: "webgpu",
+          });
+          loadingText.textContent = "Model loaded successfully!";
+          setTimeout(() => {
+            loadingOverlay.style.display = "none";
+          }, 1000);
+        } catch (err) {
+          console.error("Error loading model:", err);
+          loadingText.textContent = `Error loading model: ${err.message}`;
+          alert("Failed to load model. Switching to server processing mode.");
+        }
+      }
+
+      async function initCamera() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          video.srcObject = stream;
+        } catch (err) {
+          console.error("Error accessing camera:", err);
+          loadingText.textContent = `Camera error: ${err.message}`;
+          alert(`Error accessing camera: ${err.name}. Make sure you've granted permission.`);
+        }
+      }
+
+      function captureImage() {
+        if (!stream || !video.videoWidth) {
+          console.warn("Video stream not ready for capture.");
+          return null;
+        }
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        if (USE_LOCAL_MODEL) {
+          const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+          return new RawImage(frame.data, frame.width, frame.height, 4);
+        } else {
+          // For server processing, return as blob
+          return new Promise(resolve => {
+            canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.8);
+          });
+        }
+      }
+
+      async function runLocalVisionInference(imgElement) {
+        const instruction = "What do you see in this image?";
+        const messages = [
+          {
+            role: "user",
+            content: [{ type: "image" }, { type: "text", text: instruction }],
+          },
+        ];
+        const text = processor.apply_chat_template(messages, {
+          add_generation_prompt: true,
+        });
+        const inputs = await processor(text, [imgElement], {
+          do_image_splitting: false,
+        });
+        const generatedIds = await model.generate({
+          ...inputs,
+          max_new_tokens: 100,
+        });
+        const output = processor.batch_decode(
+          generatedIds.slice(null, [inputs.input_ids.dims.at(-1), null]),
+          { skip_special_tokens: true }
+        );
+        return output[0].trim();
+      }
+      
+      async function generateRoast(caption) {
+        // Local roast generation logic (simple version)
+        const voiceStyle = voiceSelect.value;
+        const templates = {
+          'asian-mom': [
+            `I see you ${caption}. Why you not doctor yet? Your cousin studying at Harvard!`,
+            `Aiyah! You ${caption}? Why waste time? When I was your age, I work two jobs!`,
+            `Look at you ${caption}. Your cousin already married with good job. When you getting married?`,
+            `Why you ${caption}? Your brother got straight A's in school!`,
+            `I see you ${caption}. No wonder your room still messy. You want me to use slipper?`
+          ],
+          'disappointed': [
+            `I notice you ${caption}. Is this why I paid for your education?`,
+            `*Sighs deeply* You're ${caption} when you could be studying.`,
+            `You think ${caption} will make your father proud?`,
+            `This is why relatives always ask if you found job yet.`
+          ],
+          'strict': [
+            `Stop ${caption} immediately! Do your homework!`,
+            `No dinner until you finish studying! I saw you ${caption}!`,
+            `${caption}? In my house? Unacceptable!`,
+            `Your friends can ${caption} after they become doctor. Not you!`
+          ]
+        };
+        
+        const templateList = templates[voiceStyle] || templates['asian-mom'];
+        const randomIndex = Math.floor(Math.random() * templateList.length);
+        return templateList[randomIndex];
+      }
+      
+      async function textToSpeech(text) {
+        try {
+          // For demo purpose, we'll use browser's built-in speech synthesis
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 0.9; // Slightly slower rate
+          utterance.pitch = 1.2; // Slightly higher pitch
+          
+          // Get available voices and select a female voice if possible
+          const voices = window.speechSynthesis.getVoices();
+          const femaleVoice = voices.find(voice => 
+            voice.name.includes('female') || 
+            voice.name.includes('woman') ||
+            voice.name.includes('girl') ||
+            voice.name.indexOf('Female') > -1
+          );
+          if (femaleVoice) {
+            utterance.voice = femaleVoice;
+          }
+          
+          // Create an audio blob from the speech
+          return new Promise((resolve) => {
+            const audioChunks = [];
+            const mediaRecorder = new MediaRecorder(
+              new MediaStream([new AudioContext().createMediaStreamDestination().stream.getAudioTracks()[0]])
+            );
+            
+            mediaRecorder.ondataavailable = (event) => {
+              audioChunks.push(event.data);
+            };
+            
+            mediaRecorder.onstop = () => {
+              const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+              const audioUrl = URL.createObjectURL(audioBlob);
+              resolve(audioUrl);
+            };
+            
+            mediaRecorder.start();
+            window.speechSynthesis.speak(utterance);
+            
+            utterance.onend = () => {
+              mediaRecorder.stop();
+            };
+          });
+        } catch (err) {
+          console.error("Error generating speech:", err);
+          return null;
+        }
+      }
+      
+      async function sendToServer(imageBlob) {
+        try {
+          const formData = new FormData();
+          formData.append('image', imageBlob);
+          formData.append('voice_style', voiceSelect.value);
+          
+          const response = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+          
+          return await response.json();
+        } catch (err) {
+          console.error("Error with server processing:", err);
+          return {
+            error: err.message,
+            caption: "Failed to process image",
+            roast: "Server error. Please try again.",
+            audio_url: null
+          };
+        }
+      }
+
+      async function processFrame() {
+        try {
+          analysisOutput.textContent = "Processing...";
+          roastOutput.textContent = "";
+          
+          const image = await captureImage();
+          if (!image) {
+            analysisOutput.textContent = "Failed to capture image";
+            return;
+          }
+          
+          let caption, roast, audioUrl;
+          
+          if (USE_LOCAL_MODEL) {
+            // Local processing
+            caption = await runLocalVisionInference(image);
+            roast = await generateRoast(caption);
+            
+            // Only try to generate speech if Web Speech API is available
+            if ('speechSynthesis' in window) {
+              try {
+                audioUrl = await textToSpeech(roast);
+              } catch (e) {
+                console.error("Speech synthesis error:", e);
+                audioUrl = null;
+              }
+            }
+          } else {
+            // Server processing
+            const result = await sendToServer(image);
+            caption = result.caption;
+            roast = result.roast;
+            audioUrl = result.audio_url;
+          }
+          
+          // Update UI
+          analysisOutput.textContent = caption || "No description available";
+          roastOutput.textContent = roast || "No response generated";
+          
+          if (audioUrl) {
+            audioOutput.src = audioUrl;
+            audioOutput.play().catch(e => console.error("Audio playback error:", e));
+          }
+        } catch (err) {
+          console.error("Error in processFrame:", err);
+          analysisOutput.textContent = "Error processing frame";
+          roastOutput.textContent = "Something went wrong. Please try again.";
+        }
+      }
+
+      function startProcessing() {
+        if (!stream) {
+          alert("Camera not available. Please grant permission first.");
+          return;
+        }
+        
+        isProcessing = true;
+        startButton.textContent = "Stop AsianMOM";
+        startButton.classList.replace("start", "stop");
+        intervalSelect.disabled = true;
+        voiceSelect.disabled = true;
+        
+        // Initial processing
+        processFrame();
+        
+        // Set up interval for continuous processing
+        const intervalMs = parseInt(intervalSelect.value, 10);
+        processingInterval = setInterval(() => {
+          const now = Date.now();
+          if (now - lastProcessTime >= intervalMs) {
+            lastProcessTime = now;
+            processFrame();
+          }
+        }, 1000); // Check every second, but only process based on selected interval
+      }
+
+      function stopProcessing() {
+        isProcessing = false;
+        clearInterval(processingInterval);
+        startButton.textContent = "Start AsianMOM";
+        startButton.classList.replace("stop", "start");
+        intervalSelect.disabled = false;
+        voiceSelect.disabled = false;
+      }
+
+      startButton.addEventListener("click", () => {
+        if (isProcessing) {
+          stopProcessing();
+        } else {
+          startProcessing();
+        }
+      });
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        // Check for WebGPU support if using local model
+        if (USE_LOCAL_MODEL && !navigator.gpu) {
+          loadingText.textContent = "WebGPU not available. Switching to server mode.";
+          setTimeout(() => {
+            loadingOverlay.style.display = "none";
+          }, 2000);
+        }
+
+        await Promise.all([initModel(), initCamera()]);
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      });
+      
+      // Make speech synthesis voices available
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = function() {
+          window.speechSynthesis.getVoices();
+        };
+      }
+    </script>
+  </body>
+</html>

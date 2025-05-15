@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera Interaction App</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        background-color: #f0f0f0;
+      }
+      .controls,
+      .io-areas {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .io-areas {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      textarea {
+        width: 300px;
+        height: 80px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      #videoFeed {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 6px;
+        object-fit: cover;
+      }
+      #videoContainer {
+        position: relative;
+        width: 480px;
+        height: 360px;
+        border: 2px solid #333;
+        background-color: #000;
+        border-radius: 8px;
+        margin: 0 auto;
+      }
+      #loadingOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 10;
+        border-radius: 6px;
+        color: #ffffff;
+        font-size: 1.5em;
+        font-weight: bold;
+      }
+      #startButton {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 4px;
+        color: white;
+      }
+      #startButton.start {
+        background-color: #28a745; /* Green */
+      }
+      #startButton.stop {
+        background-color: #dc3545; /* Red */
+      }
+      label {
+        font-weight: bold;
+      }
+      select {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Camera Interaction App</h1>
+
+    <div id="videoContainer">
+      <video id="videoFeed" autoplay playsinline></video>
+      <div id="loadingOverlay">Loading...</div>
+    </div>
+    <canvas id="canvas" class="hidden"></canvas>
+    <!-- For capturing frames -->
+
+    <div class="io-areas">
+      <div>
+        <label for="instructionText">Instruction:</label><br />
+        <textarea
+          id="instructionText"
+          style="height: 2em; width: 40em"
+          name="Instruction"
+        ></textarea>
+      </div>
+      <div>
+        <label for="responseText">Response:</label><br />
+        <textarea
+          id="responseText"
+          style="height: 2em; width: 40em"
+          name="Response"
+          readonly
+          placeholder="Server response will appear here..."
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label for="intervalSelect">Interval between 2 requests:</label>
+      <select id="intervalSelect" name="Interval between 2 requests">
+        <option value="0" selected>0ms</option>
+        <option value="100">100ms</option>
+        <option value="250">250ms</option>
+        <option value="500">500ms</option>
+        <option value="1000">1s</option>
+        <option value="2000">2s</option>
+      </select>
+      <button id="startButton" class="start">Start</button>
+    </div>
+
+    <script type="module">
+      import {
+        AutoProcessor,
+        AutoModelForVision2Seq,
+        RawImage,
+      } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers/dist/transformers.min.js";
+
+      const video = document.getElementById("videoFeed");
+      const canvas = document.getElementById("canvas");
+      const instructionText = document.getElementById("instructionText");
+      const responseText = document.getElementById("responseText");
+      const intervalSelect = document.getElementById("intervalSelect");
+      const startButton = document.getElementById("startButton");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+
+      instructionText.value = "What do you see?"; // default instruction
+
+      let stream;
+      let isProcessing = false;
+
+      let processor, model;
+
+      async function initModel() {
+        const modelId = "HuggingFaceTB/SmolVLM-500M-Instruct"; // or "HuggingFaceTB/SmolVLM-Instruct";
+        loadingOverlay.style.display = "flex";
+        responseText.value = "Loading processor...";
+        processor = await AutoProcessor.from_pretrained(modelId);
+        responseText.value = "Processor loaded. Loading model...";
+        model = await AutoModelForVision2Seq.from_pretrained(modelId, {
+          dtype: {
+            embed_tokens: "fp16",
+            vision_encoder: "q4",
+            decoder_model_merged: "q4",
+          },
+          device: "webgpu",
+        });
+        responseText.value = "Model loaded. Initializing camera...";
+        loadingOverlay.style.display = "none";
+      }
+
+      async function initCamera() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          video.srcObject = stream;
+          responseText.value = "Camera access granted. Ready to start.";
+        } catch (err) {
+          console.error("Error accessing camera:", err);
+          responseText.value = `Error accessing camera: ${err.name} - ${err.message}. Please ensure permissions are granted and you are on HTTPS or localhost.`;
+          alert(
+            `Error accessing camera: ${err.name}. Make sure you've granted permission and are on HTTPS or localhost.`
+          );
+        }
+      }
+
+      function captureImage() {
+        if (!stream || !video.videoWidth) {
+          console.warn("Video stream not ready for capture.");
+          return null;
+        }
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+        return new RawImage(frame.data, frame.width, frame.height, 4);
+      }
+
+      async function runLocalVisionInference(imgElement, instruction) {
+        const messages = [
+          {
+            role: "user",
+            content: [{ type: "image" }, { type: "text", text: instruction }],
+          },
+        ];
+        const text = processor.apply_chat_template(messages, {
+          add_generation_prompt: true,
+        });
+        const inputs = await processor(text, [imgElement], {
+          do_image_splitting: false,
+        });
+        const generatedIds = await model.generate({
+          ...inputs,
+          max_new_tokens: 100,
+        });
+        const output = processor.batch_decode(
+          generatedIds.slice(null, [inputs.input_ids.dims.at(-1), null]),
+          { skip_special_tokens: true }
+        );
+        return output[0].trim();
+      }
+
+      async function sendData() {
+        if (!isProcessing) return;
+        const instruction = instructionText.value;
+        const rawImg = captureImage();
+        if (!rawImg) {
+          responseText.value = "Capture failed";
+          return;
+        }
+        try {
+          const reply = await runLocalVisionInference(rawImg, instruction);
+          responseText.value = reply;
+        } catch (e) {
+          console.error(e);
+          responseText.value = `Error: ${e.message}`;
+        }
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      async function processingLoop() {
+        const intervalMs = parseInt(intervalSelect.value, 10);
+        while (isProcessing) {
+          await sendData();
+          if (!isProcessing) break;
+          await sleep(intervalMs);
+        }
+      }
+
+      function handleStart() {
+        if (!stream) {
+          responseText.value = "Camera not available. Cannot start.";
+          alert("Camera not available. Please grant permission first.");
+          return;
+        }
+        isProcessing = true;
+        startButton.textContent = "Stop";
+        startButton.classList.replace("start", "stop");
+
+        instructionText.disabled = true;
+        intervalSelect.disabled = true;
+
+        responseText.value = "Processing started...";
+
+        processingLoop();
+      }
+
+      function handleStop() {
+        isProcessing = false;
+        startButton.textContent = "Start";
+        startButton.classList.replace("stop", "start");
+
+        instructionText.disabled = false;
+        intervalSelect.disabled = false;
+        if (responseText.value.startsWith("Processing started...")) {
+          responseText.value = "Processing stopped.";
+        }
+      }
+
+      startButton.addEventListener("click", () => {
+        if (isProcessing) {
+          handleStop();
+        } else {
+          handleStart();
+        }
+      });
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        // Check for WebGPU support
+        if (!navigator.gpu) {
+          const videoElement = document.getElementById("videoFeed");
+          const warningElement = document.createElement("p");
+          warningElement.textContent =
+            "WebGPU is not available in this browser.";
+          warningElement.style.color = "red";
+          warningElement.style.textAlign = "center";
+          videoElement.parentNode.insertBefore(
+            warningElement,
+            videoElement.nextSibling
+          );
+        }
+
+        await initModel();
+        await initCamera();
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      });
+    </script>
+  </body>
+</html>
