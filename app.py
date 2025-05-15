@@ -206,13 +206,13 @@ def create_app():
         last_process_time = time.time() - 10
         processing_interval = 5
         
-        with gr.Blocks(theme=gr.themes.Soft()) as app:
-            gr.Markdown("# AsianMOM: Asian Mother Observer & Mocker")
+        with gr.Blocks(theme=gr.themes.Monochrome()) as app:
+            gr.Markdown("# Artificial Surveillance with Interactive Analysis with a Nagging Maternal Oversight Model")
             gr.Markdown("### Camera captures what you're doing and your Asian mom responds appropriately")
             
             with gr.Row():
                 with gr.Column():
-                    video_feed = gr.Image(sources=["webcam"], streaming=True, label="Camera Feed")
+                    video_feed = gr.Live(label="Camera Feed")
                 
                 with gr.Column():
                     analysis_output = gr.Textbox(label="What AsianMOM Sees", lines=2)
@@ -248,7 +248,7 @@ def create_app():
                 return image, default_caption, default_roast, default_audio
             
             # Setup the processing chain
-            video_feed.change(
+            video_feed.stream(
                 process_webcam,
                 inputs=[video_feed],
                 outputs=[video_feed, analysis_output, roast_output, audio_output]
