@@ -33,18 +33,16 @@ def initialize_vision_model():
 def analyze_image(image, vision_components):
     processor = vision_components["processor"]
     model = vision_components["model"]
-    
-    # Convert to RGB if needed
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
-    
-    inputs = processor(image, return_tensors="pt")
-    
-    with torch.no_grad():
-        outputs = model.generate(**inputs, max_length=30)
-    
-    caption = processor.decode(outputs[0], skip_special_tokens=True)
-    return caption
+    try:
+        inputs = processor(image, return_tensors="pt")
+        with torch.no_grad():
+            outputs = model.generate(**inputs, max_length=30)
+        caption = processor.decode(outputs[0], skip_special_tokens=True)
+        return caption if isinstance(caption, str) else ""
+    except Exception:
+        return "" # Return empty string on error
 
 def initialize_llm():
     model_id = "meta-llama/Llama-3.2-1B-Instruct"
@@ -76,25 +74,22 @@ def initialize_llm():
 def generate_roast(caption, llm_components):
     model = llm_components["model"]
     tokenizer = llm_components["tokenizer"]
-    
     prompt = f"""[INST] You are AsianMOM, a stereotypical Asian mother who always has high expectations. \nYou just observed your child doing this: \"{caption}\"\n    \nRespond with a short, humorous roast (maximum 2-3 sentences) in the style of a stereotypical Asian mother. \nInclude at least one of these elements:\n- Comparison to more successful relatives/cousins\n- High expectations about academic success\n- Mild threats about using slippers\n- Questioning life choices\n- Asking when they'll get married or have kids\n- Commenting on appearance\n- Saying \"back in my day\" and describing hardship\n\nBe funny but not hurtful. Keep it brief. [/INST]"""
-
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_length=300,
-            temperature=0.7,
-            top_p=0.9,
-            do_sample=True
-        )
-    
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    # Extract just the response part, not the prompt
-    response = response.split("[/INST]")[1].strip()
-    
-    return response
+    try:
+        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_length=300,
+                temperature=0.7,
+                top_p=0.9,
+                do_sample=True
+            )
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        response = response.split("[/INST]")[1].strip()
+        return response if isinstance(response, str) else ""
+    except Exception:
+        return "" # Return empty string on error
 
 # Parler-TTS setup
 parler_device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -151,6 +146,9 @@ def setup_processing_chain(video_feed, analysis_output, roast_output, audio_outp
     def process_webcam(image):
         nonlocal last_process_time
         current_time = time.time()
+        default_caption = "" 
+        default_roast = ""
+        default_audio = (PARLER_SAMPLE_RATE, np.zeros(1))
         if current_time - last_process_time >= processing_interval and image is not None:
             last_process_time = current_time
             caption, roast, audio = process_frame(
@@ -158,8 +156,11 @@ def setup_processing_chain(video_feed, analysis_output, roast_output, audio_outp
                 vision_components,
                 llm_components
             )
-            return image, caption, roast, audio
-        return image, None, None, None
+            final_caption = caption if isinstance(caption, str) else default_caption
+            final_roast = roast if isinstance(roast, str) else default_roast
+            final_audio = audio if isinstance(audio, tuple) and len(audio) == 2 and isinstance(audio[1], np.ndarray) else default_audio
+            return image, final_caption, final_roast, final_audio
+        return image, default_caption, default_roast, default_audio
     video_feed.change(
         process_webcam,
         inputs=[video_feed],
