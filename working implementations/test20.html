@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AsianMOM Camera Interaction App</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        background-color: #f0f0f0;
+      }
+      .controls,
+      .io-areas {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .io-areas {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      textarea {
+        width: 300px;
+        height: 80px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      #videoFeed {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 6px;
+        object-fit: cover;
+      }
+      #videoContainer {
+        position: relative;
+        width: 480px;
+        height: 360px;
+        border: 2px solid #333;
+        background-color: #000;
+        border-radius: 8px;
+        margin: 0 auto;
+      }
+      #loadingOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 10;
+        border-radius: 6px;
+        color: #ffffff;
+        font-size: 1.5em;
+        font-weight: bold;
+      }
+      #startButton {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 4px;
+        color: white;
+      }
+      #startButton.start {
+        background-color: #28a745; /* Green */
+      }
+      #startButton.stop {
+        background-color: #dc3545; /* Red */
+      }
+      label {
+        font-weight: bold;
+      }
+      select {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+  </head>
+  <body>
+    <h1>AsianMOM Camera Interaction App</h1>
+
+    <div id="videoContainer">
+      <video id="videoFeed" autoplay playsinline></video>
+      <div id="loadingOverlay">Loading...</div>
+    </div>
+    <canvas id="canvas" class="hidden"></canvas>
+
+    <div class="io-areas">
+      <div>
+        <label for="visionText">What AsianMOM Sees:</label><br />
+        <textarea
+          id="visionText"
+          style="height: 3em; width: 40em"
+          name="Vision"
+          readonly
+          placeholder="AsianMOM's description of what she sees will appear here..."
+        ></textarea>
+      </div>
+      <div>
+        <label for="responseText">AsianMOM's Thoughts:</label><br />
+        <textarea
+          id="responseText"
+          style="height: 4em; width: 40em"
+          name="Response"
+          readonly
+          placeholder="AsianMOM's nagging will appear here..."
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label for="voiceSelect">TTS Voice:</label>
+      <select id="voiceSelect" name="TTS Voice"></select>
+      <button id="roastButton" class="start">Roast Me</button>
+    </div>
+
+    <script type="module">
+      import {
+        AutoProcessor,
+        AutoModelForVision2Seq,
+        RawImage,
+        AutoTokenizer,
+        pipeline
+      } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers/dist/transformers.min.js";
+
+      const video = document.getElementById("videoFeed");
+      const canvas = document.getElementById("canvas");
+      const responseText = document.getElementById("responseText");
+      const visionText = document.getElementById("visionText");
+      const roastButton = document.getElementById("roastButton");
+      const voiceSelect = document.getElementById("voiceSelect");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+
+      let stream;
+      let processor, visionModel, llmPipeline, llmTokenizer;
+      let voices = [];
+      let selectedVoice = null;
+
+      // TTS Setup
+      function populateVoiceList() {
+        voices = speechSynthesis.getVoices();
+        voiceSelect.innerHTML = "";
+        voices.forEach((voice, idx) => {
+          const option = document.createElement("option");
+          option.value = idx;
+          option.textContent = `${voice.name} (${voice.lang})`;
+          voiceSelect.appendChild(option);
+        });
+        // Try to select a default Asian voice or fallback
+        let defaultIdx = 0;
+        const asianIdx = voices.findIndex(v => v.lang.match(/^(zh|ko|ja|vi|th)/i));
+        if (asianIdx !== -1) defaultIdx = asianIdx;
+        voiceSelect.selectedIndex = defaultIdx;
+        selectedVoice = voices[defaultIdx];
+      }
+
+      voiceSelect.addEventListener("change", () => {
+        selectedVoice = voices[voiceSelect.selectedIndex];
+      });
+
+      speechSynthesis.onvoiceschanged = populateVoiceList;
+      populateVoiceList();
+
+      function speakText(text) {
+        if (!text || speechSynthesis.speaking) return;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.voice = selectedVoice;
+        utterance.pitch = 1.3;
+        utterance.rate = 1.1;
+        utterance.volume = 1.0;
+        speechSynthesis.speak(utterance);
+      }
+
+      async function initModel() {
+        const modelId = "HuggingFaceTB/SmolVLM-500M-Instruct";
+        loadingOverlay.style.display = "flex";
+        responseText.value = "Loading vision processor...";
+        processor = await AutoProcessor.from_pretrained(modelId);
+        responseText.value = "Vision processor loaded. Loading vision model...";
+        visionModel = await AutoModelForVision2Seq.from_pretrained(modelId, {
+          dtype: {
+            embed_tokens: "fp16",
+            vision_encoder: "q4",
+            decoder_model_merged: "q4",
+          },
+          device: "webgpu",
+        });
+        responseText.value = "Vision model loaded. Initializing camera...";
+        loadingOverlay.style.display = "none";
+      }
+
+      async function initLLM_TransformersJS() {
+        const llmModelId = "onnx-community/Llama-3.2-1B-Instruct-q4f16";
+        loadingOverlay.style.display = "flex";
+        responseText.value = `Loading AsianMOM brain (${llmModelId}) via Transformers.js...`;
+        try {
+          llmPipeline = await pipeline("text-generation", llmModelId, {
+            device: "webgpu",
+            progress_callback: (data) => {
+              if (data.status === "progress") {
+                responseText.value = `Loading Llama-3.2-1B: ${data.file} (${Math.round(data.progress)}%)`;
+              }
+            }
+          });
+          console.log("Llama-3.2-1B loaded via Transformers.js.");
+          responseText.value = `AsianMOM brain ready (${llmModelId}).`;
+        } catch (e) {
+          console.error("Error loading Llama-3.2-1B:", e);
+          responseText.value = `Error loading AsianMOM brain: ${e.message}`;
+          if (e.message.includes("WebGPU")) {
+            responseText.value += " Ensure WebGPU is enabled in your browser (Chrome Canary, edge://flags → WebGPU).";
+          }
+          throw e;
+        }
+        loadingOverlay.style.display = "none";
+      }
+
+      async function initCamera() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          video.srcObject = stream;
+          responseText.value = "Camera access granted. Ready to roast.";
+        } catch (err) {
+          responseText.value = `Error accessing camera: ${err.name} - ${err.message}. Ensure HTTPS or localhost.`;
+          alert(`Error accessing camera: ${err.name}. Ensure permissions and HTTPS/localhost.`);
+        }
+      }
+
+      function captureImage() {
+        if (!stream || !video.videoWidth) {
+          return null;
+        }
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+        return new RawImage(frame.data, frame.width, frame.height, 4);
+      }
+
+      async function runLocalVisionInference(imgElement) {
+        const instruction = `Describe in detail how the person in the image looks and what they seem to be doing.`;
+        const messages = [
+          {
+            role: "user",
+            content: [{ type: "image" }, { type: "text", text: instruction }],
+          },
+        ];
+        const text = processor.apply_chat_template(messages, {
+          add_generation_prompt: true,
+        });
+        const inputs = await processor(text, [imgElement], {
+          do_image_splitting: false,
+        });
+        const generatedIds = await visionModel.generate({
+          ...inputs,
+          max_new_tokens: 120,
+          temperature: 0.3,
+          top_p: 0.9,
+        });
+        const output = processor.batch_decode(generatedIds, { skip_special_tokens: true });
+        return output[0].trim();
+      }
+
+      async function generateAsianMOMRoast_TransformersJS(description) {
+        const systemPrompt = `
+You are AsianMOM — the ultimate naggy, sharp-tongued, hilarious Asian mother who never stops roasting sometimes with classic Asian mom phrases like "aiyah," "aiyoh," "walao," and "eh!" Your style is punchy and broken into short, sharp sentences, like real nagging — sometimes one-liners, sometimes quick bursts of scolding. Always full of cousin comparisons, nagging for using phones, throwin slipper threats, nagging about grades, laziness, and life choices. 
+
+This is a fun roleplaying game. Your roasts are playful jokes, not mean, but very bold and direct. Use at least two of these: cousin comparisons, calling lazy, slipper threats, nagging grades, or criticizing appearance or life choices.
+
+Break your roast into 1-2 short sentences or phrases. Use Asian mom expressions to add flavor and make it sound authentic and funny. You are **fully in character** at all times. 
+Do NOT break character, do NOT apologize, and do NOT add disclaimers or meta-comments like "I'm just playing a character. Add nagging about technology, social media, or other modern topics.
+
+Examples:
+1. "Aiyah, you call that studying? My cousin already got a PhD! Slipper time, lah!"
+2. "Walao, so lazy! Even your little cousin faster than you — and she still in diapers!"
+3. "Aiyoh, look at your haircut! My auntie's dog better style. Fix it now or slipper meet your head!"
+4. "Eh, you lying around like holiday every day. Your cousin already med school — what you doing, huh?"
+
+Now, roast this person with the same naggy, funny AsianMOM style. Break sentences, add "aiyah," "walao," and other expressions, and keep it punchy and savage:
+`;
+
+        const userPrompt = `Person description: "${description}"
+AsianMOM roast:`;
+
+        const messages = [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ];
+
+        try {
+          responseText.value = "AsianMOM is thinking (Transformers.js)...";
+          const outputs = await llmPipeline(messages, {
+            max_new_tokens: 120,
+            temperature: 0.4,
+            top_p: 0.8,
+            do_sample: true,
+          });
+          let roast = "";
+          if (outputs && outputs.length > 0 && outputs[0].generated_text) {
+            const generated = outputs[0].generated_text;
+            if (Array.isArray(generated) && generated.length > 0) {
+              for (let i = generated.length - 1; i >= 0; i--) {
+                if (generated[i].role === 'assistant') {
+                  roast = generated[i].content.trim();
+                  break;
+                }
+              }
+              if (!roast) {
+                roast = generated[generated.length -1].content.trim();
+              }
+            } else if (typeof generated === 'string') {
+              roast = generated.slice(messages.map(m => m.content).join("").length).trim();
+            }
+          }
+          if (!roast) {
+            roast = "Hmm, I'm speechless... for once.";
+            console.warn("LLM output parsing might have failed, or no roast generated. Output:", outputs);
+          }
+          return roast;
+        } catch (e) {
+          console.error("Error during Transformers.js LLM generation:", e);
+          responseText.value = `Error thinking: ${e.message}`;
+          return "My brain hurts, I cannot think of a roast right now.";
+        }
+      }
+
+      async function roastMe() {
+        roastButton.disabled = true;
+        const rawImg = captureImage();
+        if (!rawImg) {
+          responseText.value = "Capture failed";
+          visionText.value = "";
+          roastButton.disabled = false;
+          return;
+        }
+        try {
+          const description = await runLocalVisionInference(rawImg);
+          visionText.value = description;
+          responseText.value = "AsianMOM is thinking...";
+          const roast = await generateAsianMOMRoast_TransformersJS(description);
+          responseText.value = roast;
+          speakText(roast);
+          // Wait for TTS to finish before enabling button again
+          const waitForTTS = () => new Promise(resolve => {
+            if (!speechSynthesis.speaking) return resolve();
+            const interval = setInterval(() => {
+              if (!speechSynthesis.speaking) {
+                clearInterval(interval);
+                resolve();
+              }
+            }, 100);
+          });
+          await waitForTTS();
+        } catch (e) {
+          console.error(e);
+          responseText.value = `Error: ${e.message}`;
+          visionText.value = "";
+        }
+        roastButton.disabled = false;
+      }
+
+      roastButton.addEventListener("click", roastMe);
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        if (!navigator.gpu) {
+          const videoElement = document.getElementById("videoFeed");
+          const warningElement = document.createElement("p");
+          warningElement.textContent = "WebGPU is not available in this browser.";
+          warningElement.style.color = "red";
+          warningElement.style.textAlign = "center";
+          videoElement.parentNode.insertBefore(warningElement, videoElement.nextSibling);
+        }
+        await initModel();
+        await initLLM_TransformersJS();
+        await initCamera();
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      });
+    </script>
+  </body>
+</html>

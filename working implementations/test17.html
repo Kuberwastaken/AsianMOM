@@ -217,26 +217,23 @@
       }
 
       async function initLLM_TransformersJS() {
-        const llmModelId = "HuggingFaceTB/SmolLM-135m-Instruct";
+        const llmModelId = "openai-community/gpt2-medium";
         loadingOverlay.style.display = "flex";
         responseText.value = `Loading AsianMOM brain (${llmModelId}) via Transformers.js...`;
         try {
           llmPipeline = await pipeline("text-generation", llmModelId, {
-            dtype: {
-              embed_tokens: "fp16",
-              decoder_model_merged: "q4",
-            },
+            model_file_name: "decoder_model_merged",
             device: "webgpu",
             progress_callback: (data) => {
               if (data.status === "progress") {
-                responseText.value = `Loading SmolLM-135m: ${data.file} (${Math.round(data.progress)}%)`;
+                responseText.value = `Loading GPT-2: ${data.file} (${Math.round(data.progress)}%)`;
               }
             }
           });
-          console.log("SmolLM-135m loaded via Transformers.js.");
+          console.log("GPT-2 loaded via Transformers.js.");
           responseText.value = `AsianMOM brain ready (${llmModelId}).`;
         } catch (e) {
-          console.error("Error loading SmolLM-135m:", e);
+          console.error("Error loading GPT-2:", e);
           responseText.value = `Error loading AsianMOM brain: ${e.message}`;
           if (e.message.includes("WebGPU")) {
             responseText.value += " Ensure WebGPU is enabled in your browser (Chrome Canary, edge://flags → WebGPU).";
@@ -273,7 +270,7 @@
       }
 
       async function runLocalVisionInference(imgElement) {
-        const instruction = `Describe what you see in the image in one sentence.`;
+        const instruction = `Describe in detail how the person in the image looks and what they seem to be doing.`;
         const messages = [
           {
             role: "user",
@@ -288,7 +285,7 @@
         });
         const generatedIds = await visionModel.generate({
           ...inputs,
-          max_new_tokens: 60,
+          max_new_tokens: 120,
           temperature: 0.7,
           top_p: 0.9,
         });
@@ -297,8 +294,18 @@
       }
 
       async function generateAsianMOMRoast_TransformersJS(description) {
-        const systemPrompt = "You are AsianMOM, a stereotypical Asian mother with high expectations. You always compare people to their more successful cousins, ask if they are a doctor yet, threaten to throw slippers, nag about grades, and question every life choice. You are funny, sharp, and never miss a chance to roast, but you are never truly mean. Your roasts should be 1-2 sentences long and directly address the image description.";
-        const userPrompt = `Given the following image description, write a short, humorous roast as AsianMOM. Include at least one of: comparing to a cousin, asking about being a doctor, slipper threats, nagging about grades, or questioning appearance/life choices.\n\nImage description: "${description}"\nAsianMOM:`;
+        const systemPrompt = `You are AsianMOM, the ultimate naggy, sharp-tongued, and funny Asian mother. You never miss a chance to compare your child to their cousins, call them lazy, threaten them with a slipper, or nag about grades and life choices. Your style is punchy, direct, and hilarious—never sweet or gentle, but always with a hint of love. Your roast should be 1–2 lines, quick and to the point, like a real Asian mom's scolding.`;
+        const userPrompt = `Here is a description of a person: "${description}"
+
+As AsianMOM, give a punchy, naggy roast in 1–2 lines. Be direct, funny, and sharp—no explanations, no sweetness. Use at least two of these: cousin comparisons, calling them lazy, slipper threats, nagging about grades, or criticizing appearance/life choices.
+
+Examples:
+1. "Why you sit like that? Even your cousin can sit straight and she's only five! If you don't fix your posture, I'll get the slipper!"
+2. "You call that a haircut? When I was your age, I had a job, perfect grades, and hair that made your aunties jealous. Go study before I call your cousin the doctor!"
+3. "If you spent half as much time on homework as you do on your phone, maybe you'd finally beat your cousin in math. Don't make me get the slipper!"
+4. "Look at you, lying around like you're on vacation. Your cousin already finished med school—what are you doing with your life?"
+
+Now, roast this person in the same punchy, naggy style:`;
 
         const messages = [
           { role: "system", content: systemPrompt },
@@ -308,9 +315,9 @@
         try {
           responseText.value = "AsianMOM is thinking (Transformers.js)...";
           const outputs = await llmPipeline(messages, {
-            max_new_tokens: 60,
+            max_new_tokens: 300,
             temperature: 0.75,
-            top_p: 0.9,
+            top_p: 0.3,
             do_sample: true,
           });
           let roast = "";
