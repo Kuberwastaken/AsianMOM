@@ -23,29 +23,46 @@ import re
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def initialize_vision_model():
-    # Using BLIP for image captioning - lightweight but effective
-    processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-    model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
-    
+    model_id = "HuggingFaceTB/SmolVLM-500M-Instruct"
+    processor = AutoProcessor.from_pretrained(model_id)
+    model = AutoModelForVision2Seq.from_pretrained(
+        model_id,
+        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+    )
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = model.to(device)
     return {
         "processor": processor,
-        "model": model
+        "model": model,
+        "device": device
     }
 
-def analyze_image(image, vision_components):
+def analyze_image(image, vision_components, instruction="What do you see?"):
     processor = vision_components["processor"]
     model = vision_components["model"]
+    device = vision_components["device"]
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
     try:
-        inputs = processor(image, return_tensors="pt")
+        # Prepare chat template
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": instruction}
+                ]
+            }
+        ]
+        text = processor.apply_chat_template(messages, add_generation_prompt=True)
+        inputs = processor(text, [image], return_tensors="pt", do_image_splitting=False).to(device)
         with torch.no_grad():
-            outputs = model.generate(**inputs, max_length=30)
-        caption = processor.decode(outputs[0], skip_special_tokens=True)
-        return caption if isinstance(caption, str) else ""
+            generated_ids = model.generate(**inputs, max_new_tokens=100)
+        output = processor.batch_decode(generated_ids[:, inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
+        return output[0].strip() if output else ""
     except Exception as e:
         print(f"Error in analyze_image: {str(e)}")
-        return "" # Return empty string on error
+        return ""
 
 def initialize_llm():
     model_id = "meta-llama/Llama-3.2-1B-Instruct"
