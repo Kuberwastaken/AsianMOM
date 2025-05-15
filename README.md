@@ -1,7 +1,7 @@
 <h1 align="center">AsianMOM: Artificial Surveillance with Interactive Analysis and Nagging Maternal Oversight Model</h1>
 
 <p align="center">
-  <img src="Media/Assets/Readme-image.jpg" alt="AsianMOM Demo" style="max-width: 100%; height: auto;" />
+  <img src="Media/Assets/Readme-Image.jpg" alt="AsianMOM Demo" style="max-width: 100%; height: auto;" />
 </p>
 
 <p align="center">
@@ -29,6 +29,7 @@
 **AsianMOM** is the result of a **2-day long study** I did to understand WebGPU and Vision models. It is an application of **Web-based Machine Learning (WebML)** to (try to) reacrate the average asian mom level comebacks in a fun little project - on just your web browser alone. This project offers a glimpse into a future where AI is more accessible, private, and democratized than ever before.
 
 (less) hefty backend load and no API calls; AsianMOM processes your camera feed, understands what she "sees," and delivers witty (and brutally honest) roasts, all on your modern web browser.
+
 ---
 
 ## ✨ Features
@@ -46,7 +47,7 @@
 
 *   **🎙️ Customizable TTS:** Choose from available system voices on your platform to hear AsianMOM's wisdom in different tones.
 
-*   **😂 The "AsianMOM" Persona:** Experience AI with a personality! hilarious, culturally-infused roasts and "encouragement."
+*   **🥿 The "AsianMOM" Persona:** Experience AI with a personality! hilarious, culturally-infused roasts and "encouragement."
 
 ---
 
@@ -89,8 +90,8 @@ Things really started coming together once I found the right tools.
 *   **WebGPU - Finally, Some Speed:** WebGPU was the missing puzzle piece for performance. With it, the models could actually use the GPU, so things ran fast enough to feel snappy and interactive.
 
 *   **Picking the Right Models:**
-    *   **Vision:** I went with `HuggingFaceTB/SmolVLM-500M-Instruct` because it’s small, gives good descriptions, and works well with both Transformers.js and WebGPU. The quantized setup (`embed_tokens: "fp16"`, `vision_encoder: "q4"`, `decoder_model_merged: "q4"`) really helped keep things lightweight.
-    *   **Language Model:** For the "roasting" part, I used `onnx-community/Llama-3.2-1B-Instruct-q4f16`. It’s a quantized ONNX model that runs well in the browser and gives decent, funny responses without being too slow.
+    *   **Vision:** I went with `HuggingFaceTB/SmolVLM-500M-Instruct` because it's small, gives good descriptions, and works well with both Transformers.js and WebGPU. The quantized setup (`embed_tokens: "fp16"`, `vision_encoder: "q4"`, `decoder_model_merged: "q4"`) really helped keep things lightweight.
+    *   **Language Model:** For the "roasting" part, I used `onnx-community/Llama-3.2-1B-Instruct-q4f16`. It's a quantized ONNX model that runs well in the browser and gives decent, funny responses without being too slow.
 
 *   **Making AsianMOM a Character:** Once the tech was sorted, I spent some time tweaking the prompts to give AsianMOM her own unique, naggy personality.
 
@@ -106,7 +107,7 @@ The magic of AsianMOM unfolds through a carefully orchestrated sequence of clien
 
 ```mermaid
 graph LR
-    A[User Clicks "Roast Me!"] --> B{Camera Access};
+    A[User Clicks 'Roast Me!'] --> B{Camera Access};
     B -- Stream --> C[Capture Image Frame];
     C -- RawImage Data --> D[Image Preprocessing via AutoProcessor];
     D --> E[**SmolVLM-500M-Instruct** <br>(Vision Model on WebGPU) <br><em>Generates Image Description</em>];
@@ -151,19 +152,19 @@ graph LR
 
 ## 🌍 WebML and WebGPU – What This Means for the World (and Why AsianMOM Is More Than a Meme)
 
-Sure, AsianMOM is a fun project, but what’s really exciting is what it shows about the future of AI and the web. Thanks to new tech like WebML and WebGPU, we’re seeing a big shift in how people everywhere can use and build with artificial intelligence—right in their browsers.
+Sure, AsianMOM is a fun project, but what's really exciting is what it shows about the future of AI and the web. Thanks to new tech like WebML and WebGPU, we're seeing a big shift in how people everywhere can use and build with artificial intelligence—right in their browsers.
 
 ### AI in Your Browser
 
-Not long ago, running advanced AI meant you needed a beefy graphics card or had to send your data off to some company’s cloud. Now, with WebML and WebGPU, all you need is a modern browser. That means anyone with a laptop, tablet, or even a phone can try out cool AI apps—no downloads, no tech headaches. If you can open a website, you can use AI.
+Not long ago, running advanced AI meant you needed a beefy graphics card or had to send your data off to some company's cloud. Now, with WebML and WebGPU, all you need is a modern browser. That means anyone with a laptop, tablet, or even a phone can try out cool AI apps—no downloads, no tech headaches. If you can open a website, you can use AI.
 
 ### Your Data, Your Device
 
-A lot of AI tools send your info to remote servers for processing. With WebML and WebGPU, everything happens right on your device. In AsianMOM, for example, your camera feed and “roast” never leave your computer. That’s a big win for privacy and peace of mind.
+A lot of AI tools send your info to remote servers for processing. With WebML and WebGPU, everything happens right on your device. In AsianMOM, for example, your camera feed and "roast" never leave your computer. That's a big win for privacy and peace of mind.
 
 ### Cheaper, Greener, and More Open
 
-Running AI in the browser means less need for expensive servers and less energy use. Developers (even solo ones!) can build and share creative tools without breaking the bank. It’s not just for tech giants anymore—anyone can join in.
+Running AI in the browser means less need for expensive servers and less energy use. Developers (even solo ones!) can build and share creative tools without breaking the bank. It's not just for tech giants anymore—anyone can join in.
 
 ### Fast, Responsive, and Even Works Offline
 
@@ -175,9 +176,9 @@ Before, building something like AsianMOM took deep AI knowledge and lots of back
 
 ### A Sneak Peek at the Future
 
-When you use AsianMOM, you’re not just getting roasted—you’re seeing a preview of a world where powerful, private, and fun AI is available to everyone, everywhere. The same tech could power language learning, accessibility tools, games, art, and way more.
+When you use AsianMOM, you're not just getting roasted—you're seeing a preview of a world where powerful, private, and fun AI is available to everyone, everywhere. The same tech could power language learning, accessibility tools, games, art, and way more.
 
-In short: WebML and WebGPU are making AI more accessible, private, and open than ever before. AsianMOM is just one example of what’s possible—and there’s a lot more to come.
+In short: WebML and WebGPU are making AI more accessible, private, and open than ever before. AsianMOM is just one example of what's possible—and there's a lot more to come.
 
 ---
 
