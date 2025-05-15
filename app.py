@@ -121,11 +121,12 @@ def parler_preprocess(text):
     return text
 
 def text_to_speech(text):
-    # Asian mom nagging style description
     description = ("Elisabeth speaks in a mature, strict, nagging, and slightly disappointed tone, "
                    "with a hint of love and high expectations, at a moderate pace with high quality audio. "
                    "She sounds like a stereotypical Asian mother who compares you to your cousins, "
                    "questions your life choices, and threatens you with a slipper, but ultimately wants the best for you.")
+    if not text or not isinstance(text, str):
+        return (PARLER_SAMPLE_RATE, np.zeros(1))
     inputs = parler_tokenizer(description, return_tensors="pt").to(parler_device)
     prompt = parler_tokenizer(parler_preprocess(text), return_tensors="pt").to(parler_device)
     set_seed(PARLER_SEED)
@@ -136,7 +137,10 @@ def text_to_speech(text):
 def process_frame(image, vision_components, llm_components):
     caption = analyze_image(image, vision_components)
     roast = generate_roast(caption, llm_components)
-    audio = text_to_speech(roast)
+    if not roast or not isinstance(roast, str):
+        audio = (PARLER_SAMPLE_RATE, np.zeros(1))
+    else:
+        audio = text_to_speech(roast)
     return caption, roast, audio
 
 def setup_processing_chain(video_feed, analysis_output, roast_output, audio_output):
@@ -185,4 +189,4 @@ if __name__ == "__main__":
     os.system('python -m unidic download')
     nltk.download('averaged_perceptron_tagger_eng')
     app = create_app()
-    app.launch() 
+    app.launch(share=True) 
