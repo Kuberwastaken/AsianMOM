@@ -11,7 +11,7 @@ pinned: true
 
 # AsianMOM 💢
 
-**AsianMOM** is a fun, interactive Gradio Space that uses your webcam to observe what you're doing and then roasts you like a stereotypical Asian mom—complete with high expectations, cousin comparisons, and slipper threats!
+**AsianMOM** is a fun, interactive Gradio Space that uses your webcam to observe what you're doing and then roasts you like a stereotypical Asian mom—complete with high expectations, cousin comparisons, and slipper threats! 
 
 ## 🚀 Features
 - **Live Webcam Feed**: Observes your actions in real time.
