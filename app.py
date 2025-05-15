@@ -11,6 +11,11 @@ import nltk
 import io
 
 from transformers import BlipProcessor, BlipForConditionalGeneration
+from parler_tts import ParlerTTSForConditionalGeneration
+from transformers import AutoFeatureExtractor, set_seed
+from transformers.models.speecht5.number_normalizer import EnglishNumberNormalizer
+from string import punctuation
+import re
 
 # Set environment variables
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -91,29 +96,52 @@ def generate_roast(caption, llm_components):
     
     return response
 
-def initialize_tts_model():
-    from melo.api import TTS
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    tts_model = TTS(language='EN', device=device)
-    speaker_ids = tts_model.hps.data.spk2id
-    return tts_model, speaker_ids
+# Parler-TTS setup
+parler_device = "cuda:0" if torch.cuda.is_available() else "cpu"
+parler_repo_id = "parler-tts/parler-tts-mini-expresso"
+parler_model = ParlerTTSForConditionalGeneration.from_pretrained(parler_repo_id).to(parler_device)
+parler_tokenizer = AutoTokenizer.from_pretrained(parler_repo_id)
+parler_feature_extractor = AutoFeatureExtractor.from_pretrained(parler_repo_id)
+PARLER_SAMPLE_RATE = parler_feature_extractor.sampling_rate
+PARLER_SEED = 42
+parler_number_normalizer = EnglishNumberNormalizer()
 
-def text_to_speech(text, tts_model, speaker_id='EN-US', speed=1.0):
-    bio = io.BytesIO()
-    tts_model.tts_to_file(text, tts_model.hps.data.spk2id[speaker_id], bio, speed=speed, format='wav')
-    bio.seek(0)
-    return (24000, bio.read())
+def parler_preprocess(text):
+    text = parler_number_normalizer(text).strip()
+    if text and text[-1] not in punctuation:
+        text = f"{text}."
+    abbreviations_pattern = r'\b[A-Z][A-Z\.]+\b'
+    def separate_abb(chunk):
+        chunk = chunk.replace(".", "")
+        return " ".join(chunk)
+    abbreviations = re.findall(abbreviations_pattern, text)
+    for abv in abbreviations:
+        if abv in text:
+            text = text.replace(abv, separate_abb(abv))
+    return text
 
-def process_frame(image, vision_components, llm_components, tts_model, speaker_id='EN-US'):
+def text_to_speech(text):
+    # Asian mom nagging style description
+    description = ("Elisabeth speaks in a mature, strict, nagging, and slightly disappointed tone, "
+                   "with a hint of love and high expectations, at a moderate pace with high quality audio. "
+                   "She sounds like a stereotypical Asian mother who compares you to your cousins, "
+                   "questions your life choices, and threatens you with a slipper, but ultimately wants the best for you.")
+    inputs = parler_tokenizer(description, return_tensors="pt").to(parler_device)
+    prompt = parler_tokenizer(parler_preprocess(text), return_tensors="pt").to(parler_device)
+    set_seed(PARLER_SEED)
+    generation = parler_model.generate(input_ids=inputs.input_ids, prompt_input_ids=prompt.input_ids)
+    audio_arr = generation.cpu().numpy().squeeze()
+    return (PARLER_SAMPLE_RATE, audio_arr)
+
+def process_frame(image, vision_components, llm_components):
     caption = analyze_image(image, vision_components)
     roast = generate_roast(caption, llm_components)
-    audio = text_to_speech(roast, tts_model, speaker_id)
+    audio = text_to_speech(roast)
     return caption, roast, audio
 
 def setup_processing_chain(video_feed, analysis_output, roast_output, audio_output):
     vision_components = initialize_vision_model()
     llm_components = initialize_llm()
-    tts_model, speaker_ids = initialize_tts_model()
     last_process_time = time.time() - 10
     processing_interval = 5
     def process_webcam(image):
@@ -124,9 +152,7 @@ def setup_processing_chain(video_feed, analysis_output, roast_output, audio_outp
             caption, roast, audio = process_frame(
                 image,
                 vision_components,
-                llm_components,
-                tts_model,
-                'EN-US'  # Default accent
+                llm_components
             )
             return image, caption, roast, audio
         return image, None, None, None
