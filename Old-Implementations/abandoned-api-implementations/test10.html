@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AsianMOM Camera Interaction App</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        background-color: #f0f0f0;
+      }
+      .controls,
+      .io-areas {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .io-areas {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      textarea {
+        width: 300px;
+        height: 80px;
+        padding: 8px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      #videoFeed {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 6px;
+        object-fit: cover;
+      }
+      #videoContainer {
+        position: relative;
+        width: 480px;
+        height: 360px;
+        border: 2px solid #333;
+        background-color: #000;
+        border-radius: 8px;
+        margin: 0 auto;
+      }
+      #loadingOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 10;
+        border-radius: 6px;
+        color: #ffffff;
+        font-size: 1.5em;
+        font-weight: bold;
+      }
+      #startButton {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 4px;
+        color: white;
+      }
+      #startButton.start {
+        background-color: #28a745; /* Green */
+      }
+      #startButton.stop {
+        background-color: #dc3545; /* Red */
+      }
+      label {
+        font-weight: bold;
+      }
+      select {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>AsianMOM Camera Interaction App</h1>
+
+    <div id="videoContainer">
+      <video id="videoFeed" autoplay playsinline></video>
+      <div id="loadingOverlay">Loading...</div>
+    </div>
+    <canvas id="canvas" class="hidden"></canvas>
+
+    <div class="io-areas">
+      <div>
+        <label for="responseText">AsianMOM's Thoughts:</label><br />
+        <textarea
+          id="responseText"
+          style="height: 4em; width: 40em"
+          name="Response"
+          readonly
+          placeholder="AsianMOM's nagging will appear here..."
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label for="intervalSelect">Interval between requests:</label>
+      <select id="intervalSelect" name="Interval between requests">
+        <option value="0">0ms</option>
+        <option value="100">100ms</option>
+        <option value="250">250ms</option>
+        <option value="500" selected>500ms</option>
+        <option value="1000">1s</option>
+        <option value="2000">2s</option>
+      </select>
+      <button id="startButton" class="start">Start</button>
+    </div>
+
+    <script type="module">
+      import {
+        AutoProcessor,
+        AutoModelForVision2Seq,
+        RawImage,
+      } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers/dist/transformers.min.js";
+
+      const video = document.getElementById("videoFeed");
+      const canvas = document.getElementById("canvas");
+      const responseText = document.getElementById("responseText");
+      const intervalSelect = document.getElementById("intervalSelect");
+      const startButton = document.getElementById("startButton");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+
+      let stream;
+      let isProcessing = false;
+      let processor, model;
+      let lastResponse = "";
+      let responseCount = 0;
+
+      // Themes for varied responses
+      const themes = [
+        "appearance",
+        "posture",
+        "study",
+        "career",
+        "marriage",
+        "manners",
+        "health",
+        "comparison",
+      ];
+
+      // TTS Setup
+      let selectedVoice = null;
+      function setupTTS() {
+        const voices = speechSynthesis.getVoices();
+        const asianFemaleVoices = voices.filter(
+          (voice) =>
+            (voice.lang.startsWith("zh") ||
+              voice.lang.startsWith("ko") ||
+              voice.lang.startsWith("ja")) &&
+            (voice.name.toLowerCase().includes("female") ||
+              voice.name.includes("Xia") ||
+              voice.name.includes("Siri") ||
+              voice.name.includes("Yuna") ||
+              voice.name.includes("Mei") ||
+              voice.name.includes("Hana"))
+        );
+        selectedVoice =
+          asianFemaleVoices[0] ||
+          voices.find((voice) => voice.name.toLowerCase().includes("female")) ||
+          voices[0];
+        console.log("Selected TTS voice:", selectedVoice?.name, selectedVoice?.lang);
+      }
+
+      speechSynthesis.onvoiceschanged = setupTTS;
+      setupTTS();
+
+      function speakText(text) {
+        if (!text || speechSynthesis.speaking || text === lastResponse) return;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.voice = selectedVoice;
+        utterance.pitch = 1.5;
+        utterance.rate = 1.2;
+        utterance.volume = 1.0;
+        speechSynthesis.speak(utterance);
+        lastResponse = text;
+      }
+
+      async function initModel() {
+        const modelId = "HuggingFaceTB/SmolVLM-500M-Instruct";
+        loadingOverlay.style.display = "flex";
+        responseText.value = "Loading processor...";
+        processor = await AutoProcessor.from_pretrained(modelId);
+        responseText.value = "Processor loaded. Loading model...";
+        model = await AutoModelForVision2Seq.from_pretrained(modelId, {
+          dtype: {
+            embed_tokens: "fp16",
+            vision_encoder: "q4",
+            decoder_model_merged: "q4",
+          },
+          device: "webgpu",
+        });
+        responseText.value = "Model loaded. Initializing camera...";
+        loadingOverlay.style.display = "none";
+      }
+
+      async function initCamera() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          video.srcObject = stream;
+          responseText.value = "Camera access granted. Ready to start.";
+        } catch (err) {
+          console.error("Error accessing camera:", err);
+          responseText.value = `Error accessing camera: ${err.name} - ${err.message}. Ensure HTTPS or localhost.`;
+          alert(`Error accessing camera: ${err.name}. Ensure permissions and HTTPS/localhost.`);
+        }
+      }
+
+      function captureImage() {
+        if (!stream || !video.videoWidth) {
+          console.warn("Video stream not ready.");
+          return null;
+        }
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+        return new RawImage(frame.data, frame.width, frame.height, 4);
+      }
+
+      async function runLocalVisionInference(imgElement) {
+        // Rotate through themes to encourage variety
+        const theme = themes[responseCount % themes.length];
+        responseCount++;
+
+        const instruction = `You are AsianMOM, a hyper-stereotypical Asian mother. Look at the user in the image and deliver a short, sharp roast (1-2 sentences) based on what you see, focusing on their ${theme}. Follow these guidelines:
+
+- Speak as a nagging, overbearing Asian mom with high expectations.
+- Use broken English, mix in words like "aiya", "lah", "meh", "ah", "ya", and mom-isms like "Why you like this?" or "You think money grow on tree?".
+- Compare to successful cousins (e.g., "Why you not like cousin Kevin? He doctor!").
+- Obsess over academic achievement, appearance, posture, or life choices depending on the theme.
+- Optionally threaten with the slipper (e.g., "You want slipper?").
+- Use guilt or exaggeration (e.g., "I work so hard, this how you repay me?").
+- Be funny, dramatic, but never mean or offensive.
+- Never praise directly; if you must, do it backhandedly (e.g., "At least you not fail, lah").
+
+Respond ONLY as AsianMOM, keep it short, punchy, and tied to the image and theme.`;
+        const messages = [
+          {
+            role: "user",
+            content: [{ type: "image" }, { type: "text", text: instruction }],
+          },
+        ];
+        const text = processor.apply_chat_template(messages, {
+          add_generation_prompt: true,
+        });
+        const inputs = await processor(text, [imgElement], {
+          do_image_splitting: false,
+        });
+        const generatedIds = await model.generate({
+          ...inputs,
+          max_new_tokens: 100,
+        });
+        const output = processor.batch_decode(generatedIds, {
+          skip_special_tokens: true,
+        });
+        console.log("Raw model output:", output[0]);
+
+        // Post-process: Clean up output
+        const lines = output[0]
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(
+            (l) =>
+              l &&
+              !l.startsWith("User:") &&
+              !l.startsWith("Assistant:") &&
+              !l.startsWith("You are AsianMOM") &&
+              !l.startsWith("- ") &&
+              !l.includes("guidelines") &&
+              !l.startsWith("Respond ONLY") &&
+              !l.includes("hyper-stereotypical") &&
+              l.length < 200
+          );
+        let result = lines[0] || output[0].trim();
+        // Show filtered lines for debugging
+        console.log("Filtered lines:", lines);
+        // Only return the first sentence
+        if (result.includes(". ")) {
+          result = result.split(/\.\s+/)[0] + ".";
+        }
+        // Ensure output is short and fits the style
+        if (result.length > 100) {
+          result = result.substring(0, 100) + "...";
+        }
+        // Fallback if output is empty or invalid
+        if (!result || result.length < 10) {
+          result = `Aiya, why you like this? Even cousin Lisa better at ${theme}!`;
+        }
+        console.log("Processed output:", result);
+        return result;
+      }
+
+      async function sendData() {
+        if (!isProcessing) return;
+        const rawImg = captureImage();
+        if (!rawImg) {
+          responseText.value = "Capture failed. Check camera.";
+          return;
+        }
+        try {
+          const reply = await runLocalVisionInference(rawImg);
+          responseText.value = reply;
+          speakText(reply);
+        } catch (e) {
+          console.error("Inference error:", e);
+          responseText.value = "Error: " + e.message;
+        }
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      async function processingLoop() {
+        const intervalMs = parseInt(intervalSelect.value, 10);
+        while (isProcessing) {
+          await sendData();
+          if (!isProcessing) break;
+          await sleep(intervalMs);
+        }
+      }
+
+      function handleStart() {
+        if (!stream) {
+          responseText.value = "Camera not available.";
+          alert("Camera not available. Grant permission first.");
+          return;
+        }
+        isProcessing = true;
+        startButton.textContent = "Stop";
+        startButton.classList.replace("start", "stop");
+        intervalSelect.disabled = true;
+        responseText.value = "Processing started...";
+        processingLoop();
+      }
+
+      function handleStop() {
+        isProcessing = false;
+        startButton.textContent = "Start";
+        startButton.classList.replace("stop", "start");
+        intervalSelect.disabled = false;
+        if (responseText.value.startsWith("Processing started...")) {
+          responseText.value = "Processing stopped.";
+        }
+      }
+
+      startButton.addEventListener("click", () => {
+        if (isProcessing) {
+          handleStop();
+        } else {
+          handleStart();
+        }
+      });
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        if (!navigator.gpu) {
+          const videoElement = document.getElementById("videoFeed");
+          const warningElement = document.createElement("p");
+          warningElement.textContent = "WebGPU is not available in this browser.";
+          warningElement.style.color = "red";
+          warningElement.style.textAlign = "center";
+          videoElement.parentNode.insertBefore(warningElement, videoElement.nextSibling);
+        }
+        await initModel();
+        await initCamera();
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      });
+    </script>
+  </body>
+</html>
