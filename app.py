@@ -9,6 +9,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig
 import time
 import nltk
 import io
+import sys
+import pkg_resources
 
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from parler_tts import ParlerTTSForConditionalGeneration
@@ -264,17 +266,40 @@ def create_app():
 
 if __name__ == "__main__":
     try:
-        # Download required resources
-        os.system('python -m unidic download')
-        nltk.download('averaged_perceptron_tagger_eng')
+        # Check and report Gradio version
+        gradio_version = pkg_resources.get_distribution("gradio").version
+        print(f"Using Gradio version: {gradio_version}")
         
-        # Create and launch app
+        # Try to download required resources
+        try:
+            os.system('python -m unidic download')
+            nltk.download('averaged_perceptron_tagger_eng')
+        except Exception as e:
+            print(f"Warning: Could not download some resources: {str(e)}")
+        
+        # Create the app
         app = create_app()
-        app.launch(share=True, debug=True)
+        
+        # Try multiple launch configurations if needed
+        try:
+            # First attempt with share=True
+            print("Launching app with share=True and debug=True")
+            app.launch(share=True, debug=True)
+        except ValueError as e:
+            if "localhost is not accessible" in str(e):
+                # Second attempt with server_name to bind to all interfaces
+                print("Retrying with server_name='0.0.0.0'")
+                app.launch(share=True, debug=True, server_name="0.0.0.0")
+            else:
+                raise e
     except Exception as e:
         print(f"Fatal error: {str(e)}")
         # If all else fails, create a minimal app
         with gr.Blocks() as minimal_app:
             gr.Markdown("# AsianMOM: Fatal Error")
             gr.Markdown(f"Fatal error: {str(e)}")
-        minimal_app.launch(share=True)
+            gr.Markdown("Try updating Gradio with: pip install --upgrade gradio")
+        try:
+            minimal_app.launch(share=True, server_name="0.0.0.0")
+        except:
+            minimal_app.launch(share=True)  # Last attempt with minimal options
