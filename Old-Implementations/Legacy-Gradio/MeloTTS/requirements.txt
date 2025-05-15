@@ -1,0 +1,11 @@
+gradio
+torch==2.1.0
+torchvision
+transformers
+pillow
+numpy
+accelerate
+git+https://github.com/huggingface/diffusers
+opencv-python
+nltk
+unidic-lite 

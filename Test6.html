@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AsianMOM Camera Interaction App</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        background-color: #f0f0f0;
+      }
+      .controls,
+      .io-areas {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background-color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .io-areas {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      textarea {
+        width: 300px;
+        height: 80px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      #videoFeed {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 6px;
+        object-fit: cover;
+      }
+      #videoContainer {
+        position: relative;
+        width: 480px;
+        height: 360px;
+        border: 2px solid #333;
+        background-color: #000;
+        border-radius: 8px;
+        margin: 0 auto;
+      }
+      #loadingOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 10;
+        border-radius: 6px;
+        color: #ffffff;
+        font-size: 1.5em;
+        font-weight: bold;
+      }
+      #startButton {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 4px;
+        color: white;
+      }
+      #startButton.start {
+        background-color: #28a745; /* Green */
+      }
+      #startButton.stop {
+        background-color: #dc3545; /* Red */
+      }
+      label {
+        font-weight: bold;
+      }
+      select {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+  </head>
+  <body>
+    <h1>AsianMOM Camera Interaction App</h1>
+
+    <div id="videoContainer">
+      <video id="videoFeed" autoplay playsinline></video>
+      <div id="loadingOverlay">Loading...</div>
+    </div>
+    <canvas id="canvas" class="hidden"></canvas>
+
+    <div class="io-areas">
+      <div>
+        <label for="responseText">AsianMOM's Thoughts:</label><br />
+        <textarea
+          id="responseText"
+          style="height: 4em; width: 40em"
+          name="Response"
+          readonly
+          placeholder="AsianMOM's nagging will appear here..."
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label for="intervalSelect">Interval between requests:</label>
+      <select id="intervalSelect" name="Interval between requests">
+        <option value="0">0ms</option>
+        <option value="100">100ms</option>
+        <option value="250">250ms</option>
+        <option value="500" selected>500ms</option>
+        <option value="1000">1s</option>
+        <option value="2000">2s</option>
+      </select>
+      <button id="startButton" class="start">Start</button>
+    </div>
+
+    <script type="module">
+      import {
+        AutoProcessor,
+        AutoModelForVision2Seq,
+        RawImage,
+        AutoTokenizer
+      } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers/dist/transformers.min.js";
+
+      const video = document.getElementById("videoFeed");
+      const canvas = document.getElementById("canvas");
+      const responseText = document.getElementById("responseText");
+      const intervalSelect = document.getElementById("intervalSelect");
+      const startButton = document.getElementById("startButton");
+      const loadingOverlay = document.getElementById("loadingOverlay");
+
+      let stream;
+      let isProcessing = false;
+      let processor, visionModel, session, tokenizer;
+
+      // TTS Setup
+      let selectedVoice = null;
+      function setupTTS() {
+        const voices = speechSynthesis.getVoices();
+        // Log all voices for debugging
+        console.log("Available voices:", voices.map(v => `${v.name} (${v.lang})`));
+        // Broader filter for Asian voices
+        const asianVoices = voices.filter(
+          (voice) =>
+            voice.lang.match(/^(zh|ko|ja|vi|th)/i) // Chinese, Korean, Japanese, Vietnamese, Thai
+        );
+        // Prioritize female-sounding names or common Asian TTS voices
+        selectedVoice =
+          asianVoices.find((voice) =>
+            voice.name.match(/Xia|Siri|Yuna|Mei|Hana|Kyoko|Ava/i)
+          ) ||
+          asianVoices[0] || // Any Asian voice
+          voices.find((voice) => voice.name.match(/female|Ava|Siri/i)) || // Any female voice
+          voices[0]; // Default
+        console.log("Selected TTS voice:", selectedVoice?.name, selectedVoice?.lang);
+      }
+
+      // Ensure voices are loaded before selecting
+      speechSynthesis.onvoiceschanged = setupTTS;
+      setupTTS();
+
+      function speakText(text) {
+        if (!text || speechSynthesis.speaking) return;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.voice = selectedVoice;
+        utterance.pitch = 1.5;
+        utterance.rate = 1.2;
+        utterance.volume = 1.0;
+        speechSynthesis.speak(utterance);
+      }
+
+      async function initModel() {
+        const modelId = "HuggingFaceTB/SmolVLM-500M-Instruct";
+        loadingOverlay.style.display = "flex";
+        responseText.value = "Loading vision processor...";
+        processor = await AutoProcessor.from_pretrained(modelId);
+        responseText.value = "Vision processor loaded. Loading vision model...";
+        visionModel = await AutoModelForVision2Seq.from_pretrained(modelId, {
+          dtype: {
+            embed_tokens: "fp16",
+            vision_encoder: "q4",
+            decoder_model_merged: "q4",
+          },
+          device: "webgpu",
+        });
+        responseText.value = "Vision model loaded. Initializing camera...";
+        loadingOverlay.style.display = "none";
+      }
+
+      async function initLLM_ONNX() {
+        const modelId = "Xenova/distilgpt2";
+        loadingOverlay.style.display = "flex";
+        responseText.value = "Loading AsianMOM brain (ONNX LLM)...";
+        try {
+          // Load tokenizer
+          tokenizer = await AutoTokenizer.from_pretrained(modelId);
+          console.log("Tokenizer loaded.");
+          // Load quantized ONNX model
+          const modelUrl = `https://huggingface.co/${modelId}/resolve/main/onnx/decoder_model_quantized.onnx`;
+          console.log("Fetching ONNX model from:", modelUrl);
+          session = await ort.InferenceSession.create(modelUrl, {
+            executionProviders: ["webgpu", "wasm"],
+          });
+          console.log("ONNX session created.");
+          responseText.value = "AsianMOM brain loaded (ONNX).";
+        } catch (e) {
+          console.error("Error loading ONNX model or tokenizer:", e);
+          responseText.value = `Error loading LLM: ${e.message}`;
+          throw e;
+        }
+        loadingOverlay.style.display = "none";
+      }
+
+      async function initCamera() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          video.srcObject = stream;
+          responseText.value = "Camera access granted. Ready to start.";
+        } catch (err) {
+          responseText.value = `Error accessing camera: ${err.name} - ${err.message}. Ensure HTTPS or localhost.`;
+          alert(`Error accessing camera: ${err.name}. Ensure permissions and HTTPS/localhost.`);
+        }
+      }
+
+      function captureImage() {
+        if (!stream || !video.videoWidth) {
+          return null;
+        }
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+        return new RawImage(frame.data, frame.width, frame.height, 4);
+      }
+
+      async function runLocalVisionInference(imgElement) {
+        const instruction = `Describe what you see in the image in one sentence.`;
+        const messages = [
+          {
+            role: "user",
+            content: [{ type: "image" }, { type: "text", text: instruction }],
+          },
+        ];
+        const text = processor.apply_chat_template(messages, {
+          add_generation_prompt: true,
+        });
+        const inputs = await processor(text, [imgElement], {
+          do_image_splitting: false,
+        });
+        const generatedIds = await visionModel.generate({
+          ...inputs,
+          max_new_tokens: 60,
+          temperature: 0.7,
+          top_p: 0.9,
+        });
+        const output = processor.batch_decode(generatedIds, { skip_special_tokens: true });
+        return output[0].trim();
+      }
+
+      async function generateAsianMOMRoast_ONNX(description) {
+        const prompt = `You are AsianMOM, a stereotypical Asian mother with high expectations. You always compare people to their more successful cousins, ask if they are a doctor yet, threaten to throw slippers, nag about grades, and question every life choice. You are funny, sharp, and never miss a chance to roast, but you are never truly mean.\n\nGiven the following image description, write a short, humorous roast (1-2 sentences) as AsianMOM. Include at least one of: comparing to a cousin, asking about being a doctor, slipper threats, nagging about grades, or questioning appearance/life choices.\n\nImage description: "${description}"\nAsianMOM:`;
+        // Tokenize prompt using Transformers.js tokenizer
+        const inputs = await tokenizer(prompt, { return_tensors: "pt" });
+        let inputIds = inputs.input_ids[0]; // Get token IDs
+        let generatedIds = [...inputIds];
+        const maxNewTokens = 60;
+        const eosTokenId = tokenizer.eos_token_id || 50256; // GPT-2's <|endoftext|> token
+
+        // Generate tokens one by one
+        for (let i = 0; i < maxNewTokens; i++) {
+          const inputTensor = new ort.Tensor(
+            "int64",
+            BigInt64Array.from(generatedIds.map(BigInt)),
+            [1, generatedIds.length]
+          );
+          const feeds = { input_ids: inputTensor };
+          const results = await session.run(feeds);
+          const logits = results.logits.data;
+          const vocabSize = tokenizer.vocab_size || 50256;
+          const lastTokenLogits = logits.slice(
+            (generatedIds.length - 1) * vocabSize,
+            generatedIds.length * vocabSize
+          );
+          // Greedy decoding: pick token with highest logit
+          const nextToken = lastTokenLogits.indexOf(Math.max(...lastTokenLogits));
+          generatedIds.push(nextToken);
+          if (nextToken === eosTokenId || nextToken === tokenizer.encode("\n")[0]) {
+            break;
+          }
+        }
+
+        // Decode generated tokens
+        const output = tokenizer.decode(generatedIds, { skip_special_tokens: true });
+        // Extract roast part after prompt
+        const roast = output.slice(prompt.length).trim();
+        return roast;
+      }
+
+      async function sendData() {
+        if (!isProcessing) return;
+        const rawImg = captureImage();
+        if (!rawImg) {
+          responseText.value = "Capture failed";
+          return;
+        }
+        try {
+          const description = await runLocalVisionInference(rawImg);
+          responseText.value = "AsianMOM is thinking...";
+          const roast = await generateAsianMOMRoast_ONNX(description);
+          responseText.value = roast;
+          speakText(roast);
+        } catch (e) {
+          console.error(e);
+          responseText.value = `Error: ${e.message}`;
+        }
+      }
+
+      function sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+
+      async function processingLoop() {
+        const intervalMs = parseInt(intervalSelect.value, 10);
+        while (isProcessing) {
+          await sendData();
+          if (!isProcessing) break;
+          await sleep(intervalMs);
+        }
+      }
+
+      function handleStart() {
+        if (!stream) {
+          responseText.value = "Camera not available.";
+          alert("Camera not available. Grant permission first.");
+          return;
+        }
+        isProcessing = true;
+        startButton.textContent = "Stop";
+        startButton.classList.replace("start", "stop");
+        intervalSelect.disabled = true;
+        responseText.value = "Processing started...";
+        processingLoop();
+      }
+
+      function handleStop() {
+        isProcessing = false;
+        startButton.textContent = "Start";
+        startButton.classList.replace("stop", "start");
+        intervalSelect.disabled = false;
+        if (responseText.value.startsWith("Processing started...")) {
+          responseText.value = "Processing stopped.";
+        }
+      }
+
+      startButton.addEventListener("click", () => {
+        if (isProcessing) {
+          handleStop();
+        } else {
+          handleStart();
+        }
+      });
+
+      window.addEventListener("DOMContentLoaded", async () => {
+        if (!navigator.gpu) {
+          const videoElement = document.getElementById("videoFeed");
+          const warningElement = document.createElement("p");
+          warningElement.textContent = "WebGPU is not available in this browser.";
+          warningElement.style.color = "red";
+          warningElement.style.textAlign = "center";
+          videoElement.parentNode.insertBefore(warningElement, videoElement.nextSibling);
+        }
+        await initModel();
+        await initLLM_ONNX();
+        await initCamera();
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      });
+    </script>
+  </body>
+</html>
