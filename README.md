@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/static/v1?label=Kuberwastaken&message=AsianMOM&color=000000&logo=github" alt="Project AsianMOM WebML" style="margin: 4px;">
-  <img src="https://img.shields.io/badge/Version-21.0-000000" alt="Version 21" style="margin: 4px;">
+  <img src="https://img.shields.io/badge/Version-21.0-000000" alt="Version 22" style="margin: 4px;">
   <img src="https://img.shields.io/badge/License-Apache%202.0-000000" alt="License Apache 2.0" style="margin: 4px;">
   <br>
   <a href="https://huggingface.co/docs/transformers.js/index" target="_blank" style="margin: 4px;">

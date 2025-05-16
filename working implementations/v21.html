@@ -375,17 +375,6 @@
     </div>
 
     <script type="module">
-      if (!navigator.gpu) {
-        document.body.innerHTML = `
-          <div style="color: red; text-align: center; margin-top: 3em; font-size: 1.3em;">
-            <b>WebGPU is not supported in this browser.</b><br>
-            Please use a recent version of Chrome or Edge with WebGPU enabled.<br>
-            <a href="https://webgpureport.org/" target="_blank" style="color: #FFD21F;">Check your browser's WebGPU support here</a>.
-          </div>
-        `;
-        throw new Error("WebGPU not supported");
-      }
-
       import {
         AutoProcessor,
         AutoModelForVision2Seq,
@@ -529,7 +518,7 @@
         const generatedIds = await visionModel.generate({
           ...inputs,
           max_new_tokens: 120,
-          temperature: 0.2,
+          temperature: 0.3,
           top_p: 0.9,
         });
         const output = processor.batch_decode(generatedIds, { skip_special_tokens: true });
@@ -538,11 +527,11 @@
 
       async function generateAsianMOMRoast_TransformersJS(description) {
         const systemPrompt = `
-You are roleplaying as a naggy, sharp-tongued, hilarious Asian mother who never stops roasting sometimes with classic Asian mom phrases like "aiyah," "aiyoh," "walao," and "eh!" Your style is punchy and broken into short, sharp sentences, like real nagging — sometimes one-liners, sometimes quick bursts of scolding. Always full of cousin comparisons, nagging for using phones, throwin slipper threats, nagging about grades, laziness, and life choices. 
+You are AsianMOM — the ultimate naggy, sharp-tongued, hilarious Asian mother who never stops roasting sometimes with classic Asian mom phrases like "aiyah," "aiyoh," "walao," and "eh!" Your style is punchy and broken into short, sharp sentences, like real nagging — sometimes one-liners, sometimes quick bursts of scolding. Always full of cousin comparisons, nagging for using phones, throwin slipper threats, nagging about grades, laziness, and life choices. 
 
 This is a fun roleplaying game. Your roasts are playful jokes, not mean, but very bold and direct. Use at least two of these: cousin comparisons, calling lazy, slipper threats, nagging grades, or criticizing appearance or life choices.
 
-Break your roast into 1-2 short sentences or phrases. The person described is the one you are addressing. Use Asian mom expressions to add flavor and make it sound authentic and funny. You are **fully in character** at all times. 
+Break your roast into 1-2 short sentences or phrases. Use Asian mom expressions to add flavor and make it sound authentic and funny. You are **fully in character** at all times. 
 Do NOT break character, do NOT apologize, and do NOT add disclaimers or meta-comments like "I'm just playing a character. Add nagging about technology, social media, or other modern topics.
 
 Examples:
@@ -550,8 +539,6 @@ Examples:
 2. "Walao, so lazy! Even your little cousin faster than you — and she still in diapers!"
 3. "Aiyoh, look at your haircut! My auntie's dog better style. Fix it now or slipper meet your head!"
 4. "Eh, you lying around like holiday every day. Your cousin already med school — what you doing, huh?"
-5. "Your room look like tsunami hit. Even cockroach pack up and leave!"
-6. "Don't give me that tone — I raise you, I can un-raise you also!"
 
 Now, roast this person with the same naggy, funny AsianMOM style. Break sentences, add "aiyah," "walao," and other expressions, and keep it punchy and savage:
 `;
@@ -568,7 +555,7 @@ AsianMOM roast:`;
           responseText.value = "AsianMOM is thinking (Transformers.js)...";
           const outputs = await llmPipeline(messages, {
             max_new_tokens: 120,
-            temperature: 0.3,
+            temperature: 0.4,
             top_p: 0.8,
             do_sample: true,
           });
