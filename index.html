@@ -417,16 +417,28 @@
           option.textContent = `${voice.name} (${voice.lang})`;
           voiceSelect.appendChild(option);
         });
-        // Try to select a default Asian voice or fallback
+
+        // Try to restore saved voice from localStorage
+        const savedVoiceName = localStorage.getItem("asianmom_tts_voice");
         let defaultIdx = 0;
-        const asianIdx = voices.findIndex(v => v.lang.match(/^(zh|ko|ja|vi|th)/i));
-        if (asianIdx !== -1) defaultIdx = asianIdx;
+        if (savedVoiceName) {
+          const savedIdx = voices.findIndex(v => v.name === savedVoiceName);
+          if (savedIdx !== -1) defaultIdx = savedIdx;
+        } else {
+          // Try to select a default Asian voice or fallback
+          const asianIdx = voices.findIndex(v => v.lang.match(/^(zh|ko|ja|vi|th)/i));
+          if (asianIdx !== -1) defaultIdx = asianIdx;
+        }
         voiceSelect.selectedIndex = defaultIdx;
         selectedVoice = voices[defaultIdx];
       }
 
       voiceSelect.addEventListener("change", () => {
         selectedVoice = voices[voiceSelect.selectedIndex];
+        // Save the selected voice name to localStorage
+        if (selectedVoice && selectedVoice.name) {
+          localStorage.setItem("asianmom_tts_voice", selectedVoice.name);
+        }
       });
 
       speechSynthesis.onvoiceschanged = populateVoiceList;
@@ -529,8 +541,8 @@
         const generatedIds = await visionModel.generate({
           ...inputs,
           max_new_tokens: 120,
-          temperature: 0.2,
-          top_p: 0.9,
+          temperature: 0.1,
+          top_p: 0.8,
         });
         const output = processor.batch_decode(generatedIds, { skip_special_tokens: true });
         return output[0].trim();
